@@ -1,21 +1,25 @@
 import { useState, useEffect } from "react";
-import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SaldoAwalItem } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Search } from "lucide-react";
 import { toast } from "sonner";
 import { rekeningData } from "@/data/rekening-data";
 
+type Mode = "view" | "add" | "edit";
+
 export default function SaldoAwal() {
   const [items, setItems] = useState<SaldoAwalItem[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<SaldoAwalItem | null>(null);
+  const [mode, setMode] = useState<Mode>("view");
 
-  const allDetailRekening = rekeningData.filter(r => r.level === 3);
+  // Rekening neraca (aset, kewajiban, ekuitas)
+  const allDetailRekening = rekeningData.filter(r =>
+    r.level === 3 && (r.kode.startsWith("1.") || r.kode.startsWith("2.") || r.kode.startsWith("3."))
+  );
 
   const [form, setForm] = useState({ kodeRekening: "", namaRekening: "", debet: 0, kredit: 0 });
 
@@ -28,94 +32,152 @@ export default function SaldoAwal() {
     saveState(state);
   };
 
-  const handleSave = () => {
-    if (!form.kodeRekening) return toast.error("Pilih rekening");
-    save([...items, { id: crypto.randomUUID(), ...form }]);
-    setDialogOpen(false);
-    setForm({ kodeRekening: "", namaRekening: "", debet: 0, kredit: 0 });
-    toast.success("Saldo awal ditambahkan");
-  };
+  const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2 });
 
   const totalDebet = items.reduce((s, i) => s + i.debet, 0);
   const totalKredit = items.reduce((s, i) => s + i.kredit, 0);
-  const isBalanced = totalDebet === totalKredit;
+
+  const handleTambah = () => {
+    setMode("add");
+    setSelected(null);
+    setForm({ kodeRekening: "", namaRekening: "", debet: 0, kredit: 0 });
+  };
+
+  const handleUbah = () => {
+    if (!selected) { toast.error("Pilih data terlebih dahulu"); return; }
+    setMode("edit");
+    setForm({ kodeRekening: selected.kodeRekening, namaRekening: selected.namaRekening, debet: selected.debet, kredit: selected.kredit });
+  };
+
+  const handleHapus = () => {
+    if (!selected) { toast.error("Pilih data terlebih dahulu"); return; }
+    save(items.filter(i => i.id !== selected.id));
+    setSelected(null);
+    setMode("view");
+    toast.success("Data saldo awal dihapus");
+  };
+
+  const handleBatal = () => {
+    setMode("view");
+    setForm({ kodeRekening: "", namaRekening: "", debet: 0, kredit: 0 });
+  };
+
+  const handleSimpan = () => {
+    if (!form.kodeRekening) { toast.error("Pilih rekening"); return; }
+    if (mode === "add") {
+      save([...items, { id: crypto.randomUUID(), ...form }]);
+      toast.success("Saldo awal ditambahkan");
+    } else if (mode === "edit" && selected) {
+      save(items.map(i => i.id === selected.id ? { ...i, ...form } : i));
+      toast.success("Saldo awal diperbarui");
+    }
+    setMode("view");
+  };
 
   return (
-    <div>
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold font-heading">Saldo Awal Kekayaan Desa</h1>
-          <p className="text-sm text-muted-foreground">Neraca awal desa — debet harus sama dengan kredit</p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2"><Plus size={16} /> Tambah</Button>
-      </div>
-      <div className="p-6 space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="stat-card"><p className="text-xs text-muted-foreground">Total Debet</p><p className="text-xl font-bold font-heading text-primary">Rp {totalDebet.toLocaleString("id-ID")}</p></div>
-          <div className="stat-card"><p className="text-xs text-muted-foreground">Total Kredit</p><p className="text-xl font-bold font-heading text-info">Rp {totalKredit.toLocaleString("id-ID")}</p></div>
-          <div className="stat-card"><p className="text-xs text-muted-foreground">Status</p><p className={`text-xl font-bold font-heading ${isBalanced ? "text-success" : "text-destructive"}`}>{isBalanced ? "✓ Seimbang" : "✗ Tidak Seimbang"}</p></div>
-        </div>
-
-        <div className="content-card overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-secondary/50">
-                <TableHead className="font-semibold">Kode Rekening</TableHead>
-                <TableHead className="font-semibold">Nama Rekening</TableHead>
-                <TableHead className="font-semibold text-right">Debet (Rp)</TableHead>
-                <TableHead className="font-semibold text-right">Kredit (Rp)</TableHead>
-                <TableHead className="font-semibold text-center">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Belum ada saldo awal</TableCell></TableRow>
-              ) : items.map(item => (
-                <TableRow key={item.id}>
-                  <TableCell><span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{item.kodeRekening}</span></TableCell>
-                  <TableCell className="text-sm">{item.namaRekening}</TableCell>
-                  <TableCell className="text-sm text-right font-medium">{item.debet > 0 ? item.debet.toLocaleString("id-ID") : "0"}</TableCell>
-                  <TableCell className="text-sm text-right font-medium">{item.kredit > 0 ? item.kredit.toLocaleString("id-ID") : "0"}</TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="sm" onClick={() => { save(items.filter(i => i.id !== item.id)); }}><Trash2 size={14} className="text-destructive" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {items.length > 0 && (
-                <TableRow className="bg-secondary/30 font-bold">
-                  <TableCell colSpan={2} className="text-right">Jumlah</TableCell>
-                  <TableCell className="text-right">{totalDebet.toLocaleString("id-ID")}</TableCell>
-                  <TableCell className="text-right">{totalKredit.toLocaleString("id-ID")}</TableCell>
-                  <TableCell />
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="page-header">
+        <h1 className="text-lg font-bold font-heading">SALDO AWAL KEKAYAAN DESA</h1>
+        <p className="text-xs text-muted-foreground">Desa Simulasi — Tahun Anggaran 2024</p>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="font-heading">Tambah Saldo Awal</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-xs">Rekening</Label>
-              <Select value={form.kodeRekening} onValueChange={v => { const r = allDetailRekening.find(x => x.kode === v); setForm({...form, kodeRekening: v, namaRekening: r?.uraian || ""}); }}>
-                <SelectTrigger><SelectValue placeholder="Pilih Rekening" /></SelectTrigger>
-                <SelectContent>{allDetailRekening.map(r => <SelectItem key={r.kode} value={r.kode}>{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label className="text-xs">Debet (Rp)</Label><Input type="number" value={form.debet || ""} onChange={e => setForm({...form, debet: Number(e.target.value)})} /></div>
-              <div><Label className="text-xs">Kredit (Rp)</Label><Input type="number" value={form.kredit || ""} onChange={e => setForm({...form, kredit: Number(e.target.value)})} /></div>
+      <div className="flex-1 p-4 flex flex-col gap-0 overflow-hidden">
+        <div className="flex-1 border border-border rounded-md bg-card flex flex-col overflow-hidden">
+          {/* Master table */}
+          <div className="flex-1 overflow-auto border-b border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-secondary/50 text-[11px]">
+                  <TableHead className="font-semibold">Kd_Rincian</TableHead>
+                  <TableHead className="font-semibold">Nama_Rincian</TableHead>
+                  <TableHead className="font-semibold text-right">Debet</TableHead>
+                  <TableHead className="font-semibold text-right">Kredit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada saldo awal</TableCell></TableRow>
+                ) : (
+                  <>
+                    {items.map(item => (
+                      <TableRow key={item.id}
+                        className={`cursor-pointer text-[11px] ${selected?.id === item.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
+                        onClick={() => { setSelected(item); setMode("view"); }}>
+                        <TableCell className="font-mono">{item.kodeRekening}</TableCell>
+                        <TableCell>{item.namaRekening}</TableCell>
+                        <TableCell className="text-right font-medium">{item.debet > 0 ? fmt(item.debet) : "0,00"}</TableCell>
+                        <TableCell className="text-right font-medium">{item.kredit > 0 ? fmt(item.kredit) : "0,00"}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-secondary/30 text-[11px] font-bold">
+                      <TableCell colSpan={2} className="text-right">Jumlah</TableCell>
+                      <TableCell className="text-right">{fmt(totalDebet)}</TableCell>
+                      <TableCell className="text-right">{fmt(totalKredit)}</TableCell>
+                    </TableRow>
+                    {totalDebet !== totalKredit && (
+                      <TableRow className="text-[11px]">
+                        <TableCell colSpan={4} className="text-center text-destructive font-semibold">
+                          ⚠️ Debet dan Kredit tidak seimbang!
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Detail form */}
+          <div className="p-4 space-y-2 bg-muted/10">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] w-28 shrink-0">Kode Rekening</Label>
+                  <Select value={mode !== "view" ? form.kodeRekening : selected?.kodeRekening || ""}
+                    disabled={mode === "view"}
+                    onValueChange={v => {
+                      const r = allDetailRekening.find(x => x.kode === v);
+                      setForm({...form, kodeRekening: v, namaRekening: r?.uraian || ""});
+                    }}>
+                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Rekening" /></SelectTrigger>
+                    <SelectContent>{allDetailRekening.map(r => <SelectItem key={r.kode} value={r.kode} className="text-xs">{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] w-28 shrink-0">Nama Rekening</Label>
+                  <Input className="h-7 text-[11px]" readOnly
+                    value={mode !== "view" ? form.namaRekening : selected?.namaRekening || ""} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] w-24 shrink-0">Saldo Debet</Label>
+                  <Input type="number" className="h-7 text-[11px] text-right font-medium" readOnly={mode === "view"}
+                    value={mode !== "view" ? form.debet || "" : selected?.debet || ""}
+                    onChange={e => setForm({...form, debet: Number(e.target.value)})} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] w-24 shrink-0">Saldo Kredit</Label>
+                  <Input type="number" className="h-7 text-[11px] text-right font-medium" readOnly={mode === "view"}
+                    value={mode !== "view" ? form.kredit || "" : selected?.kredit || ""}
+                    onChange={e => setForm({...form, kredit: Number(e.target.value)})} />
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleSave}>Simpan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleUbah}><Pencil size={12} />Ubah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleHapus}><Trash2 size={12} />Hapus</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleBatal}><X size={12} />Batal</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleSimpan}><Save size={12} />Simpan</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1"><Printer size={12} />Cetak</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => window.history.back()}><DoorOpen size={12} />Tutup</Button>
+      </div>
     </div>
   );
 }

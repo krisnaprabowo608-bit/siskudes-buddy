@@ -156,6 +156,36 @@ export interface SaldoAwalItem {
   kredit: number;
 }
 
+export interface SPJPanjarItem {
+  id: string;
+  sppId: string;
+  tanggalSPJ: string;
+  nomorSPJ: string;
+  nomorSPP: string;
+  jumlahCair: number;
+  jumlahSPJ: number;
+  sisa: number;
+  keterangan: string;
+}
+
+export interface JurnalUmumItem {
+  id: string;
+  tanggal: string;
+  kodeBuku: string;
+  nomorBukti: string;
+  uraian: string;
+  posting: boolean;
+  rincian: JurnalRincian[];
+}
+
+export interface JurnalRincian {
+  id: string;
+  kodeRekening: string;
+  uraian: string;
+  debet: number;
+  kredit: number;
+}
+
 // Simple localStorage-based state
 const STORAGE_KEY = 'siskeudes_state';
 
@@ -169,6 +199,8 @@ export interface AppState {
   pencairan: PencairanSPP[];
   penyetoranPajak: PenyetoranPajak[];
   saldoAwal: SaldoAwalItem[];
+  spjPanjar: SPJPanjarItem[];
+  jurnalUmum: JurnalUmumItem[];
 }
 
 const defaultState: AppState = {
@@ -181,6 +213,8 @@ const defaultState: AppState = {
   pencairan: [],
   penyetoranPajak: [],
   saldoAwal: [],
+  spjPanjar: [],
+  jurnalUmum: [],
 };
 
 export function loadState(): AppState {
