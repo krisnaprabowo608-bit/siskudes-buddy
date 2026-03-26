@@ -1,17 +1,34 @@
-import { useState } from "react";
-import { loadState, saveState, PenyetoranPajak as PenyetoranPajakItem } from "@/data/app-state";
+import { useState, useEffect } from "react";
+import { loadState, saveState, type PenyetoranPajak as PenyetoranPajakItem } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Search } from "lucide-react";
+import { toast } from "sonner";
 import { rekeningData } from "@/data/rekening-data";
+
+type Mode = "view" | "add" | "edit";
+type ActiveTab = "penyetoran" | "rincianBuktiPotong";
 
 export default function PenyetoranPajak() {
   const [state, setState] = useState(loadState());
-  const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<PenyetoranPajakItem | null>(null);
+  const [mode, setMode] = useState<Mode>("view");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("penyetoran");
 
   const pajakRekening = rekeningData.filter(r => r.kode.startsWith("7.1"));
+
+  // All bukti potong from SPP transactions
+  const allBuktiPotong = state.spp
+    .flatMap(s => s.buktiTransaksi)
+    .flatMap(bt => bt.potonganPajak.map(p => ({
+      noBukti: bt.noBukti,
+      kodeRekening: p.kodeRekening,
+      namaRekening: p.namaRekening,
+      nilai: p.nilai,
+    })));
 
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().split("T")[0],
@@ -22,38 +39,91 @@ export default function PenyetoranPajak() {
     jumlah: 0,
     ntpn: "",
     jenis: "tunai" as "tunai" | "bank",
+    namaWP: "",
+    alamatWP: "",
+    npwp: "",
+    ttd: "",
   });
 
-  // Get bukti potong from SPP items
-  const allBuktiPotong = state.spp
-    .flatMap(s => s.buktiTransaksi)
-    .flatMap(bt => bt.potonganPajak.map(p => ({
-      noBukti: bt.noBukti,
-      kodeRekening: p.kodeRekening,
-      namaRekening: p.namaRekening,
-      nilai: p.nilai,
-    })));
-
   const [selectedBuktiPotong, setSelectedBuktiPotong] = useState<typeof allBuktiPotong>([]);
+  const [rincianForm, setRincianForm] = useState({
+    noBuktiPotong: "", kodeRekening: "", namaRekening: "", nilai: 0,
+  });
 
-  const handleSave = () => {
-    const newItem: PenyetoranPajakItem = {
-      id: Date.now().toString(),
-      ...form,
-      rincianBuktiPotong: selectedBuktiPotong,
-    };
-    const newState = { ...state, penyetoranPajak: [...state.penyetoranPajak, newItem] };
-    saveState(newState);
-    setState(newState);
-    setShowForm(false);
-    setForm({ tanggal: new Date().toISOString().split("T")[0], noBukti: "", kodeRekening: "", kodeMAP: "", keterangan: "", jumlah: 0, ntpn: "", jenis: "tunai" });
+  const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2 });
+
+  const refreshState = () => setState(loadState());
+
+  const handleTambah = () => {
+    setMode("add");
+    setSelected(null);
+    const count = state.penyetoranPajak.length + 1;
+    setForm({
+      tanggal: new Date().toISOString().split("T")[0],
+      noBukti: `${String(count).padStart(4, "0")}/SSP/05.2001/2024`,
+      kodeRekening: "", kodeMAP: "", keterangan: "",
+      jumlah: 0, ntpn: "", jenis: "tunai",
+      namaWP: "", alamatWP: "", npwp: "", ttd: "",
+    });
     setSelectedBuktiPotong([]);
   };
 
-  const handleDelete = (id: string) => {
-    const newState = { ...state, penyetoranPajak: state.penyetoranPajak.filter(p => p.id !== id) };
+  const handleUbah = () => {
+    if (!selected) { toast.error("Pilih data terlebih dahulu"); return; }
+    setMode("edit");
+    setForm({
+      tanggal: selected.tanggal, noBukti: selected.noBukti,
+      kodeRekening: selected.kodeRekening, kodeMAP: selected.kodeMAP,
+      keterangan: selected.keterangan, jumlah: selected.jumlah,
+      ntpn: selected.ntpn, jenis: selected.jenis,
+      namaWP: "", alamatWP: "", npwp: "", ttd: "",
+    });
+    setSelectedBuktiPotong(selected.rincianBuktiPotong || []);
+  };
+
+  const handleHapus = () => {
+    if (!selected) { toast.error("Pilih data terlebih dahulu"); return; }
+    const newState = { ...state, penyetoranPajak: state.penyetoranPajak.filter(p => p.id !== selected.id) };
     saveState(newState);
     setState(newState);
+    setSelected(null);
+    toast.success("Data penyetoran pajak dihapus");
+  };
+
+  const handleSimpan = () => {
+    if (!form.noBukti || !form.kodeRekening) { toast.error("Lengkapi data"); return; }
+    const newItem: PenyetoranPajakItem = {
+      id: mode === "edit" && selected ? selected.id : crypto.randomUUID(),
+      tanggal: form.tanggal, noBukti: form.noBukti,
+      kodeRekening: form.kodeRekening, kodeMAP: form.kodeMAP,
+      keterangan: form.keterangan, jumlah: form.jumlah,
+      ntpn: form.ntpn, jenis: form.jenis,
+      rincianBuktiPotong: selectedBuktiPotong,
+    };
+
+    let newPenyetoran;
+    if (mode === "edit" && selected) {
+      newPenyetoran = state.penyetoranPajak.map(p => p.id === selected.id ? newItem : p);
+    } else {
+      newPenyetoran = [...state.penyetoranPajak, newItem];
+    }
+    const newState = { ...state, penyetoranPajak: newPenyetoran };
+    saveState(newState);
+    setState(newState);
+    setSelected(newItem);
+    setMode("view");
+    toast.success("Data penyetoran pajak disimpan");
+  };
+
+  const addRincianBuktiPotong = () => {
+    if (!rincianForm.noBuktiPotong || !rincianForm.kodeRekening) { toast.error("Lengkapi data rincian"); return; }
+    setSelectedBuktiPotong([...selectedBuktiPotong, {
+      noBukti: rincianForm.noBuktiPotong,
+      kodeRekening: rincianForm.kodeRekening,
+      namaRekening: rincianForm.namaRekening,
+      nilai: rincianForm.nilai,
+    }]);
+    setRincianForm({ noBuktiPotong: "", kodeRekening: "", namaRekening: "", nilai: 0 });
   };
 
   return (
@@ -63,86 +133,231 @@ export default function PenyetoranPajak() {
         <p className="text-xs text-muted-foreground">Desa Simulasi</p>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => setShowForm(true)}>Tambah</Button>
+      <div className="flex-1 p-4 flex gap-0">
+        {/* Vertical Tabs */}
+        <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
+          <button onClick={() => setActiveTab("penyetoran")}
+            className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "penyetoran" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>Penyetoran</button>
+          <button onClick={() => setActiveTab("rincianBuktiPotong")}
+            className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "rincianBuktiPotong" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>Rincian Bukti</button>
         </div>
 
-        <div className="content-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="px-3 py-2 text-left border-b border-border/60">Tanggal</th>
-                  <th className="px-3 py-2 text-left border-b border-border/60">No Bukti</th>
-                  <th className="px-3 py-2 text-left border-b border-border/60">Kode MAP</th>
-                  <th className="px-3 py-2 text-left border-b border-border/60">Keterangan</th>
-                  <th className="px-3 py-2 text-right border-b border-border/60">Jumlah</th>
-                  <th className="px-3 py-2 text-left border-b border-border/60">NTPN</th>
-                  <th className="px-3 py-2 text-center border-b border-border/60">Jenis</th>
-                  <th className="px-3 py-2 text-center border-b border-border/60">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.penyetoranPajak.length === 0 ? (
-                  <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Belum ada data penyetoran pajak</td></tr>
-                ) : (
-                  state.penyetoranPajak.map(item => (
-                    <tr key={item.id} className="border-b border-border/40 hover:bg-muted/30">
-                      <td className="px-3 py-2">{item.tanggal}</td>
-                      <td className="px-3 py-2">{item.noBukti}</td>
-                      <td className="px-3 py-2">{item.kodeMAP}</td>
-                      <td className="px-3 py-2">{item.keterangan}</td>
-                      <td className="px-3 py-2 text-right">{item.jumlah.toLocaleString('id-ID')}</td>
-                      <td className="px-3 py-2">{item.ntpn}</td>
-                      <td className="px-3 py-2 text-center capitalize">{item.jenis}</td>
-                      <td className="px-3 py-2 text-center">
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>Hapus</Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <div className="flex-1 border border-l-0 border-border rounded-r-md bg-card flex flex-col overflow-hidden">
+          {activeTab === "penyetoran" && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Master table */}
+              <div className="flex-1 overflow-auto border-b border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50 text-[11px]">
+                      <TableHead className="font-semibold">Tgl Bukti</TableHead>
+                      <TableHead className="font-semibold">No Bukti</TableHead>
+                      <TableHead className="font-semibold">Keterangan</TableHead>
+                      <TableHead className="font-semibold text-right">Jumlah</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {state.penyetoranPajak.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada data</TableCell></TableRow>
+                    ) : state.penyetoranPajak.map(item => (
+                      <TableRow key={item.id}
+                        className={`cursor-pointer text-[11px] ${selected?.id === item.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
+                        onClick={() => { setSelected(item); setMode("view"); }}>
+                        <TableCell>{item.tanggal}</TableCell>
+                        <TableCell className="font-mono">{item.noBukti}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{item.keterangan}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(item.jumlah)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-        {showForm && (
-          <div className="content-card p-4 space-y-3">
-            <h3 className="text-sm font-bold font-heading">Form Penyetoran Pajak</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div><Label className="text-xs">Tanggal</Label><Input type="date" value={form.tanggal} onChange={e => setForm({...form, tanggal: e.target.value})} className="text-xs h-8" /></div>
-              <div><Label className="text-xs">No Bukti</Label><Input value={form.noBukti} onChange={e => setForm({...form, noBukti: e.target.value})} className="text-xs h-8" placeholder="0001/SSP/05.2001/2024" /></div>
-              <div>
-                <Label className="text-xs">Kd Rekening Pajak</Label>
-                <Select value={form.kodeRekening} onValueChange={v => setForm({...form, kodeRekening: v})}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>
-                    {pajakRekening.map(r => <SelectItem key={r.kode} value={r.kode} className="text-xs">{r.kode} - {r.uraian}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label className="text-xs">Kode MAP</Label><Input value={form.kodeMAP} onChange={e => setForm({...form, kodeMAP: e.target.value})} className="text-xs h-8" placeholder="411211-100" /></div>
-              <div><Label className="text-xs">Keterangan</Label><Input value={form.keterangan} onChange={e => setForm({...form, keterangan: e.target.value})} className="text-xs h-8" /></div>
-              <div><Label className="text-xs">Jumlah</Label><Input type="number" value={form.jumlah} onChange={e => setForm({...form, jumlah: Number(e.target.value)})} className="text-xs h-8" /></div>
-              <div><Label className="text-xs">NTPN</Label><Input value={form.ntpn} onChange={e => setForm({...form, ntpn: e.target.value})} className="text-xs h-8" /></div>
-              <div>
-                <Label className="text-xs">Jenis</Label>
-                <Select value={form.jenis} onValueChange={v => setForm({...form, jenis: v as "tunai"|"bank"})}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tunai" className="text-xs">Tunai</SelectItem>
-                    <SelectItem value="bank" className="text-xs">Bank</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Detail form */}
+              <div className="p-4 space-y-2 bg-muted/10">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">No Bukti</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.noBukti : selected?.noBukti || ""}
+                        onChange={e => setForm({...form, noBukti: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Tgl Bukti</Label>
+                      <Input type="date" className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.tanggal : selected?.tanggal || ""}
+                        onChange={e => setForm({...form, tanggal: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Kd Rincian</Label>
+                      <Select value={mode !== "view" ? form.kodeRekening : selected?.kodeRekening || ""}
+                        disabled={mode === "view"}
+                        onValueChange={v => setForm({...form, kodeRekening: v})}>
+                        <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                        <SelectContent>{pajakRekening.map(r => <SelectItem key={r.kode} value={r.kode} className="text-xs">{r.kode} - {r.uraian}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Kode MAP</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"} placeholder="411211-100"
+                        value={mode !== "view" ? form.kodeMAP : selected?.kodeMAP || ""}
+                        onChange={e => setForm({...form, kodeMAP: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Keterangan</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.keterangan : selected?.keterangan || ""}
+                        onChange={e => setForm({...form, keterangan: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Jumlah</Label>
+                      <Input type="number" className="h-7 text-[11px] text-right font-medium" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.jumlah || "" : selected?.jumlah || ""}
+                        onChange={e => setForm({...form, jumlah: Number(e.target.value)})} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="px-3 py-1 border border-border rounded bg-muted/30 mb-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground">Identitas Penyetor</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Nama WP</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.namaWP : ""}
+                        onChange={e => setForm({...form, namaWP: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Alamat WP</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.alamatWP : ""}
+                        onChange={e => setForm({...form, alamatWP: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">NPWP</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.npwp : ""}
+                        onChange={e => setForm({...form, npwp: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Ttd</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.ttd : ""}
+                        onChange={e => setForm({...form, ttd: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">NTPN</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.ntpn : selected?.ntpn || ""}
+                        onChange={e => setForm({...form, ntpn: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Jenis</Label>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1 text-[11px]">
+                          <input type="radio" name="jenisPajak" value="tunai" disabled={mode === "view"}
+                            checked={(mode !== "view" ? form.jenis : selected?.jenis) === "tunai"}
+                            onChange={() => setForm({...form, jenis: "tunai"})} />
+                          Tunai
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px]">
+                          <input type="radio" name="jenisPajak" value="bank" disabled={mode === "view"}
+                            checked={(mode !== "view" ? form.jenis : selected?.jenis) === "bank"}
+                            onChange={() => setForm({...form, jenis: "bank"})} />
+                          Bank
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={handleSave}>Simpan</Button>
-              <Button size="sm" variant="outline" onClick={() => setShowForm(false)}>Batal</Button>
+          )}
+
+          {activeTab === "rincianBuktiPotong" && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 py-2 border-b border-border bg-secondary/20">
+                <p className="text-[11px]">
+                  <span className="font-semibold">No Bukti:</span>{" "}
+                  <span className="font-mono">{selected?.noBukti || form.noBukti || "-"}</span>
+                </p>
+              </div>
+
+              {/* Rincian table */}
+              <div className="flex-1 overflow-auto border-b border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50 text-[11px]">
+                      <TableHead className="font-semibold">No_Bukti</TableHead>
+                      <TableHead className="font-semibold">Kd_Rincian</TableHead>
+                      <TableHead className="font-semibold">Nama Rincian</TableHead>
+                      <TableHead className="font-semibold text-right">Nilai</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(mode !== "view" ? selectedBuktiPotong : selected?.rincianBuktiPotong || []).length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada rincian bukti potong</TableCell></TableRow>
+                    ) : (mode !== "view" ? selectedBuktiPotong : selected?.rincianBuktiPotong || []).map((bp, idx) => (
+                      <TableRow key={idx} className="text-[11px] hover:bg-muted/50">
+                        <TableCell className="font-mono">{bp.noBukti}</TableCell>
+                        <TableCell>{bp.kodeRekening}</TableCell>
+                        <TableCell>{bp.namaRekening}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(bp.nilai)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Rincian form */}
+              {mode !== "view" && (
+                <div className="p-4 space-y-2 bg-muted/10">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[11px] w-28 shrink-0">No Bukti Potong</Label>
+                    <Input className="h-7 text-[11px]" value={rincianForm.noBuktiPotong}
+                      onChange={e => setRincianForm({...rincianForm, noBuktiPotong: e.target.value})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[11px] w-28 shrink-0">Kd Rincian</Label>
+                    <Select value={rincianForm.kodeRekening}
+                      onValueChange={v => {
+                        const r = pajakRekening.find(x => x.kode === v);
+                        setRincianForm({...rincianForm, kodeRekening: v, namaRekening: r?.uraian || ""});
+                      }}>
+                      <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                      <SelectContent>{pajakRekening.map(r => <SelectItem key={r.kode} value={r.kode} className="text-xs">{r.kode} - {r.uraian}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[11px] w-28 shrink-0">Nama Rincian</Label>
+                    <Input className="h-7 text-[11px]" readOnly value={rincianForm.namaRekening} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[11px] w-28 shrink-0">Nilai</Label>
+                    <Input type="number" className="h-7 text-[11px] text-right" value={rincianForm.nilai || ""}
+                      onChange={e => setRincianForm({...rincianForm, nilai: Number(e.target.value)})} />
+                  </div>
+                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={addRincianBuktiPotong}>
+                    <Plus size={12} />Tambah Rincian
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleUbah}><Pencil size={12} />Ubah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleHapus}><Trash2 size={12} />Hapus</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => setMode("view")}><X size={12} />Batal</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleSimpan}><Save size={12} />Simpan</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1"><Printer size={12} />Cetak</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => window.history.back()}><DoorOpen size={12} />Tutup</Button>
       </div>
     </div>
   );

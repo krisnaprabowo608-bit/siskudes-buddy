@@ -5,19 +5,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Lock } from "lucide-react";
 import { toast } from "sonner";
+
+type Mode = "view" | "add" | "edit";
+type ActiveTab = "sppFinal" | "buktiPencairan";
 
 export default function PencairanSPPPage() {
   const [pencairan, setPencairan] = useState<PencairanSPP[]>([]);
   const [sppList, setSppList] = useState<SPPItem[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSPP, setSelectedSPP] = useState<SPPItem | null>(null);
+  const [selectedPencairan, setSelectedPencairan] = useState<PencairanSPP | null>(null);
+  const [mode, setMode] = useState<Mode>("view");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("sppFinal");
 
   const [form, setForm] = useState({
-    sppId: "", tanggal: "", noCek: "",
-    pembayaran: "bank" as "tunai" | "bank",
-    jumlah: 0, potongan: 0,
+    nomorPencairan: "", tanggal: "", noBukti: "", tglBayar: "",
+    uraian: "", pembayaran: "bank" as "tunai" | "bank",
+    jumlah: 0, potongan: 0, namaBank: "BPD Simulasi", cmsId: "",
   });
 
   useEffect(() => {
@@ -33,114 +38,258 @@ export default function PencairanSPPPage() {
     saveState(state);
   };
 
-  const handleSave = () => {
-    if (!form.sppId) return toast.error("Pilih SPP yang akan dicairkan");
-    const spp = sppList.find(s => s.id === form.sppId);
-    const netto = form.jumlah - form.potongan;
-    const count = pencairan.length + 1;
-    save([...pencairan, {
-      id: crypto.randomUUID(),
-      sppId: form.sppId,
-      nomorPencairan: `${String(count).padStart(4, "0")}/BANK/05.2001/2024`,
-      tanggal: form.tanggal,
-      noCek: form.noCek,
-      pembayaran: form.pembayaran,
-      jumlah: form.jumlah || spp?.jumlah || 0,
-      potongan: form.potongan,
-      netto,
-    }]);
-    setDialogOpen(false);
-    setForm({ sppId: "", tanggal: "", noCek: "", pembayaran: "bank", jumlah: 0, potongan: 0 });
-    toast.success("SPP berhasil dicairkan");
+  const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2 });
+
+  const pencairanForSPP = (sppId: string) => pencairan.filter(p => p.sppId === sppId);
+
+  const generateNoPencairan = (spp: SPPItem) => {
+    const count = pencairan.filter(p => p.sppId === spp.id).length + 1;
+    return `${String(count).padStart(4, "0")}/SPP/05.2001/2024`;
   };
 
-  const getSPPInfo = (sppId: string) => {
-    const state = loadState();
-    return state.spp.find(s => s.id === sppId);
+  const generateNoBukti = () => {
+    const count = pencairan.length + 1;
+    return `${String(count).padStart(4, "0")}/BANK/05.2001/2024`;
+  };
+
+  // Actions
+  const handleTambah = () => {
+    if (!selectedSPP) { toast.error("Pilih SPP Final terlebih dahulu"); return; }
+    setMode("add");
+    setSelectedPencairan(null);
+    setActiveTab("buktiPencairan");
+    setForm({
+      nomorPencairan: generateNoPencairan(selectedSPP),
+      tanggal: new Date().toISOString().slice(0, 10),
+      noBukti: generateNoBukti(),
+      tglBayar: new Date().toISOString().slice(0, 10),
+      uraian: selectedSPP.uraian,
+      pembayaran: "bank", jumlah: selectedSPP.jumlah,
+      potongan: 0, namaBank: "BPD Simulasi", cmsId: "",
+    });
+  };
+
+  const handleHapus = () => {
+    if (!selectedPencairan) { toast.error("Pilih data pencairan"); return; }
+    save(pencairan.filter(p => p.id !== selectedPencairan.id));
+    setSelectedPencairan(null);
+    setMode("view");
+    toast.success("Data pencairan dihapus");
+  };
+
+  const handleSimpan = () => {
+    if (!selectedSPP || !form.tanggal) { toast.error("Lengkapi data"); return; }
+    const netto = form.jumlah - form.potongan;
+    if (mode === "add") {
+      const newItem: PencairanSPP = {
+        id: crypto.randomUUID(),
+        sppId: selectedSPP.id,
+        nomorPencairan: form.nomorPencairan,
+        tanggal: form.tanggal,
+        noCek: form.noBukti,
+        pembayaran: form.pembayaran,
+        jumlah: form.jumlah,
+        potongan: form.potongan,
+        netto,
+      };
+      save([...pencairan, newItem]);
+      setSelectedPencairan(newItem);
+      toast.success("SPP berhasil dicairkan");
+    }
+    setMode("view");
+  };
+
+  const handleBatal = () => { setMode("view"); };
+
+  const handleKunciBukti = () => {
+    toast.info("Bukti pencairan telah dikunci");
   };
 
   return (
-    <div>
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold font-heading">Pencairan SPP</h1>
-          <p className="text-sm text-muted-foreground">Pencairan SPP yang sudah final di Kas Desa</p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2"><Plus size={16} /> Cairkan SPP</Button>
+    <div className="h-full flex flex-col">
+      <div className="page-header">
+        <h1 className="text-lg font-bold font-heading">PENCAIRAN SPP DI KAS DESA</h1>
+        <p className="text-xs text-muted-foreground">Desa Simulasi</p>
       </div>
-      <div className="p-6">
-        <div className="content-card overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-secondary/50">
-                <TableHead className="font-semibold">No. Pencairan</TableHead>
-                <TableHead className="font-semibold">Tanggal</TableHead>
-                <TableHead className="font-semibold">No. SPP</TableHead>
-                <TableHead className="font-semibold">Pembayaran</TableHead>
-                <TableHead className="font-semibold text-right">Jumlah (Rp)</TableHead>
-                <TableHead className="font-semibold text-right">Potongan (Rp)</TableHead>
-                <TableHead className="font-semibold text-right">Netto (Rp)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pencairan.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Belum ada pencairan. Buat SPP Final terlebih dahulu.</TableCell></TableRow>
-              ) : pencairan.map(item => {
-                const spp = getSPPInfo(item.sppId);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="text-xs font-mono">{item.nomorPencairan}</TableCell>
-                    <TableCell className="text-sm">{item.tanggal}</TableCell>
-                    <TableCell className="text-xs font-mono">{spp?.nomorSPP || "-"}</TableCell>
-                    <TableCell className="text-sm capitalize">{item.pembayaran}</TableCell>
-                    <TableCell className="text-sm text-right">{item.jumlah.toLocaleString("id-ID")}</TableCell>
-                    <TableCell className="text-sm text-right text-destructive">{item.potongan.toLocaleString("id-ID")}</TableCell>
-                    <TableCell className="text-sm text-right font-bold">{item.netto.toLocaleString("id-ID")}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+
+      <div className="flex-1 p-4 flex gap-0">
+        {/* Vertical Tabs */}
+        <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
+          <button onClick={() => setActiveTab("sppFinal")}
+            className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "sppFinal" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>SPP Final</button>
+          <button onClick={() => { if (selectedSPP) setActiveTab("buktiPencairan"); else toast.error("Pilih SPP terlebih dahulu"); }}
+            className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "buktiPencairan" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>Bukti Pencairan</button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 border border-l-0 border-border rounded-r-md bg-card flex flex-col overflow-hidden">
+          {activeTab === "sppFinal" && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 py-2 border-b border-border bg-secondary/20">
+                <p className="text-[11px] font-semibold">SPP Final Yang Sudah Dicairkan :</p>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50 text-[11px]">
+                      <TableHead className="font-semibold">Tgl_SPP</TableHead>
+                      <TableHead className="font-semibold">No_SPP</TableHead>
+                      <TableHead className="font-semibold">Keterangan</TableHead>
+                      <TableHead className="font-semibold text-right">Jumlah</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sppList.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada SPP Final</TableCell></TableRow>
+                    ) : sppList.map(spp => (
+                      <TableRow key={spp.id}
+                        className={`cursor-pointer text-[11px] ${selectedSPP?.id === spp.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
+                        onClick={() => { setSelectedSPP(spp); setSelectedPencairan(null); }}>
+                        <TableCell>{spp.tanggalSPP}</TableCell>
+                        <TableCell className="font-mono">{spp.nomorSPP}</TableCell>
+                        <TableCell className="max-w-[250px] truncate">{spp.uraian}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(spp.jumlah)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "buktiPencairan" && selectedSPP && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 py-2 border-b border-border bg-secondary/20 flex items-center gap-4">
+                <div className="text-[11px]">
+                  <span className="font-semibold">Nomor Pencairan:</span>{" "}
+                  <span className="font-mono">{mode !== "view" ? form.nomorPencairan : selectedPencairan?.nomorPencairan || "-"}</span>
+                </div>
+                <div className="text-[11px]">
+                  <span className="font-semibold">Tanggal:</span>{" "}
+                  <span>{mode !== "view" ? form.tanggal : selectedPencairan?.tanggal || "-"}</span>
+                </div>
+              </div>
+
+              {/* Pencairan list for selected SPP */}
+              <div className="flex-shrink-0 max-h-[120px] overflow-auto border-b border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50 text-[11px]">
+                      <TableHead className="font-semibold">No_Cek</TableHead>
+                      <TableHead className="font-semibold">Tgl_Cek</TableHead>
+                      <TableHead className="font-semibold">Keterangan</TableHead>
+                      <TableHead className="font-semibold text-right">Netto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pencairanForSPP(selectedSPP.id).length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4 text-xs">Belum ada pencairan</TableCell></TableRow>
+                    ) : pencairanForSPP(selectedSPP.id).map(pc => (
+                      <TableRow key={pc.id}
+                        className={`cursor-pointer text-[11px] ${selectedPencairan?.id === pc.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
+                        onClick={() => { setSelectedPencairan(pc); setMode("view"); }}>
+                        <TableCell className="font-mono">{pc.noCek}</TableCell>
+                        <TableCell>{pc.tanggal}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{selectedSPP.uraian}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(pc.netto)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Detail form */}
+              <div className="flex-1 p-4 space-y-3 bg-muted/10 overflow-auto">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">No Bukti</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.noBukti : selectedPencairan?.noCek || ""}
+                        onChange={e => setForm({...form, noBukti: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Tgl Bayar</Label>
+                      <Input type="date" className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.tglBayar : selectedPencairan?.tanggal || ""}
+                        onChange={e => setForm({...form, tglBayar: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Uraian</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.uraian : selectedSPP?.uraian || ""}
+                        onChange={e => setForm({...form, uraian: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Pembayaran</Label>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1 text-[11px]">
+                          <input type="radio" name="pembayaran" value="tunai" disabled={mode === "view"}
+                            checked={(mode !== "view" ? form.pembayaran : selectedPencairan?.pembayaran) === "tunai"}
+                            onChange={() => setForm({...form, pembayaran: "tunai"})} />
+                          Tunai
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px]">
+                          <input type="radio" name="pembayaran" value="bank" disabled={mode === "view"}
+                            checked={(mode !== "view" ? form.pembayaran : selectedPencairan?.pembayaran) === "bank"}
+                            onChange={() => setForm({...form, pembayaran: "bank"})} />
+                          Bank
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Nama Bank</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.namaBank : "BPD Simulasi"}
+                        onChange={e => setForm({...form, namaBank: e.target.value})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">CMS ID</Label>
+                      <Input className="h-7 text-[11px]" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.cmsId : ""}
+                        onChange={e => setForm({...form, cmsId: e.target.value})} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Jumlah</Label>
+                      <Input type="number" className="h-7 text-[11px] text-right font-medium" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.jumlah || "" : selectedPencairan?.jumlah || ""}
+                        onChange={e => setForm({...form, jumlah: Number(e.target.value)})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Potongan</Label>
+                      <Input type="number" className="h-7 text-[11px] text-right font-medium" readOnly={mode === "view"}
+                        value={mode !== "view" ? form.potongan || "" : selectedPencairan?.potongan || ""}
+                        onChange={e => setForm({...form, potongan: Number(e.target.value)})} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20 shrink-0">Dibayarkan</Label>
+                      <Input className="h-7 text-[11px] text-right font-medium bg-muted" readOnly
+                        value={fmt(mode !== "view" ? form.jumlah - form.potongan : selectedPencairan?.netto || 0)} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="font-heading">Cairkan SPP</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-xs">SPP Final</Label>
-              <Select value={form.sppId} onValueChange={v => { const spp = sppList.find(s => s.id === v); setForm({...form, sppId: v, jumlah: spp?.jumlah || 0}); }}>
-                <SelectTrigger><SelectValue placeholder="Pilih SPP yang sudah Final" /></SelectTrigger>
-                <SelectContent>{sppList.map(s => <SelectItem key={s.id} value={s.id}>{s.nomorSPP} — Rp {s.jumlah.toLocaleString("id-ID")}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label className="text-xs">Tanggal</Label><Input type="date" value={form.tanggal} onChange={e => setForm({...form, tanggal: e.target.value})} /></div>
-              <div><Label className="text-xs">No. Cek</Label><Input value={form.noCek} onChange={e => setForm({...form, noCek: e.target.value})} /></div>
-            </div>
-            <div>
-              <Label className="text-xs">Pembayaran</Label>
-              <Select value={form.pembayaran} onValueChange={v => setForm({...form, pembayaran: v as "tunai" | "bank"})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tunai">Tunai</SelectItem>
-                  <SelectItem value="bank">Bank</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="number" value={form.jumlah || ""} onChange={e => setForm({...form, jumlah: Number(e.target.value)})} /></div>
-              <div><Label className="text-xs">Potongan (Rp)</Label><Input type="number" value={form.potongan || ""} onChange={e => setForm({...form, potongan: Number(e.target.value)})} /></div>
-              <div><Label className="text-xs">Netto (Rp)</Label><Input type="number" value={form.jumlah - form.potongan} readOnly className="bg-muted" /></div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleSave}>Cairkan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Action Bar */}
+      <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" disabled><Pencil size={12} />Ubah</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleHapus}><Trash2 size={12} />Hapus</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleBatal}><X size={12} />Batal</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleSimpan}><Save size={12} />Simpan</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1"><Printer size={12} />Cetak</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleKunciBukti}><Lock size={12} />Kunci Bukti</Button>
+        <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => window.history.back()}><DoorOpen size={12} />Tutup</Button>
+      </div>
     </div>
   );
 }
