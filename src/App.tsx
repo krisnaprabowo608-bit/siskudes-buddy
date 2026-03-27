@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppLayout from "@/components/AppLayout";
+import SiteLockGuard from "@/components/SiteLockGuard";
 import Beranda from "@/pages/Beranda";
 import DataUmumDesa from "@/pages/DataUmumDesa";
 import ParameterBidangKegiatan from "@/pages/ParameterBidangKegiatan";
@@ -31,6 +32,8 @@ import LaporanBKU from "@/pages/LaporanBKU";
 import LaporanBKPPajak from "@/pages/LaporanBKPPajak";
 import LaporanPenjabaran from "@/pages/LaporanPenjabaran";
 import LaporanLRAPerKegiatan from "@/pages/LaporanLRAPerKegiatan";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +45,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout />}>
+          {/* Admin routes - outside SiteLockGuard */}
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+          {/* User routes - protected by SiteLockGuard */}
+          <Route element={<SiteLockGuard><AppLayout /></SiteLockGuard>}>
             <Route path="/" element={<Beranda />} />
             <Route path="/data-umum" element={<DataUmumDesa />} />
             <Route path="/parameter/bidang-kegiatan" element={<ParameterBidangKegiatan />} />
