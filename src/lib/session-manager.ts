@@ -27,31 +27,33 @@ export async function upsertSession(data: {
     .eq("session_id", sessionId)
     .maybeSingle();
 
+  const updateObj: Record<string, unknown> = {
+    last_active: new Date().toISOString(),
+  };
+  if (data.user_name !== undefined) updateObj.user_name = data.user_name;
+  if (data.village_id !== undefined) updateObj.village_id = data.village_id;
+  if (data.village_name !== undefined) updateObj.village_name = data.village_name;
+  if (data.form_data !== undefined) updateObj.form_data = JSON.parse(JSON.stringify(data.form_data));
+
   if (existing) {
     const mergedProgress = {
       ...(typeof existing.form_progress === 'object' && existing.form_progress !== null ? existing.form_progress : {}),
       ...(data.form_progress || {}),
     };
+    updateObj.form_progress = mergedProgress as unknown;
     await supabase
       .from("user_sessions")
-      .update({
-        ...(data.user_name !== undefined && { user_name: data.user_name }),
-        ...(data.village_id !== undefined && { village_id: data.village_id }),
-        ...(data.village_name !== undefined && { village_name: data.village_name }),
-        form_progress: mergedProgress,
-        ...(data.form_data !== undefined && { form_data: data.form_data }),
-        last_active: new Date().toISOString(),
-      })
+      .update(updateObj as never)
       .eq("session_id", sessionId);
   } else {
-    await supabase.from("user_sessions").insert({
+    await supabase.from("user_sessions").insert([{
       session_id: sessionId,
       user_name: data.user_name || "",
       village_id: data.village_id || "",
       village_name: data.village_name || "",
-      form_progress: data.form_progress || {},
-      form_data: data.form_data || {},
-    });
+      form_progress: (data.form_progress || {}) as unknown as Record<string, never>,
+      form_data: (data.form_data ? JSON.parse(JSON.stringify(data.form_data)) : {}) as unknown as Record<string, never>,
+    }]);
   }
 }
 
