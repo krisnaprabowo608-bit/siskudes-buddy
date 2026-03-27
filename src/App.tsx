@@ -38,6 +38,10 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const SiteLockGuardLayout = () => (
+  <SiteLockGuard><AppLayout /></SiteLockGuard>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
