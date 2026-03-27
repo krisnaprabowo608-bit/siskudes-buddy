@@ -50,7 +50,7 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
           {/* User routes - protected by SiteLockGuard */}
-          <Route element={<SiteLockGuard><AppLayout /></SiteLockGuard>}>
+          <Route element={<SiteLockGuardLayout />}>
             <Route path="/" element={<Beranda />} />
             <Route path="/data-umum" element={<DataUmumDesa />} />
             <Route path="/parameter/bidang-kegiatan" element={<ParameterBidangKegiatan />} />
