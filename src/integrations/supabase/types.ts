@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      site_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_locked: boolean
+          max_users: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_locked?: boolean
+          max_users?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_locked?: boolean
+          max_users?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string
+          form_data: Json
+          form_progress: Json
+          id: string
+          last_active: string
+          session_id: string
+          user_name: string
+          village_id: string
+          village_name: string
+        }
+        Insert: {
+          created_at?: string
+          form_data?: Json
+          form_progress?: Json
+          id?: string
+          last_active?: string
+          session_id: string
+          user_name?: string
+          village_id?: string
+          village_name?: string
+        }
+        Update: {
+          created_at?: string
+          form_data?: Json
+          form_progress?: Json
+          id?: string
+          last_active?: string
+          session_id?: string
+          user_name?: string
+          village_id?: string
+          village_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
