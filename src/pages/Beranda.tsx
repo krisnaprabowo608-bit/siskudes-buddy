@@ -51,7 +51,7 @@ export default function Beranda() {
 
         {/* Subtitle */}
         <div className={`mt-3 transition-all duration-700 delay-500 ${loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <p className="text-lg font-semibold font-heading drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] text-primary md:text-5xl">
+          <p className="text-lg font-semibold font-heading drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] md:text-5xl text-popover-foreground">
             Sistem Pengelolaan Keuangan Desa
           </p>
           <p className="text-[hsl(0,0%,90%)] mt-1 font-medium drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] text-5xl">
