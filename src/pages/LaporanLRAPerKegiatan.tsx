@@ -47,6 +47,7 @@ export default function LaporanLRAPerKegiatan() {
         <Button size="sm" onClick={() => exportToPDF('lra-kegiatan-content', `LRA_PerKegiatan_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
+        <KirimLaporanButton />
       </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">

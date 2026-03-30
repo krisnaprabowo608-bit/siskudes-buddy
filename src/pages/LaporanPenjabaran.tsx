@@ -27,6 +27,7 @@ export default function LaporanPenjabaran() {
         <Button size="sm" onClick={() => exportToPDF('penjabaran-content', `Penjabaran_APBDes_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
+        <KirimLaporanButton />
       </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">
