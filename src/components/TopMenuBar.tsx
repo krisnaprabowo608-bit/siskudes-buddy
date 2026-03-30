@@ -100,7 +100,7 @@ const menuStructure: MenuItem[] = [
   {
     label: "Help",
     children: [
-      { label: "Tentang Aplikasi", path: "/" },
+      { label: "Tentang Aplikasi", path: "/tentang" },
     ],
   },
 ];

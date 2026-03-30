@@ -34,6 +34,7 @@ import LaporanPenjabaran from "@/pages/LaporanPenjabaran";
 import LaporanLRAPerKegiatan from "@/pages/LaporanLRAPerKegiatan";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import TentangAplikasi from "@/pages/TentangAplikasi";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,7 @@ const App = () => (
             <Route path="/laporan/bku" element={<LaporanBKU />} />
             <Route path="/laporan/bkp-pajak" element={<LaporanBKPPajak />} />
             <Route path="/laporan/penjabaran" element={<LaporanPenjabaran />} />
+            <Route path="/tentang" element={<TentangAplikasi />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
