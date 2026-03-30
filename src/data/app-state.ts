@@ -189,6 +189,32 @@ export interface JurnalRincian {
 // Simple localStorage-based state
 const STORAGE_KEY = 'siskeudes_state';
 
+export interface KegiatanAnggaranItem {
+  id: string;
+  kodeBidang: string;
+  kodeSubBidang: string;
+  kodeKegiatan: string;
+  namaKegiatan: string;
+  waktuPelaksanaan: string;
+  namaPelaksana: string;
+  jabatanPelaksana: string;
+  keluaran: string;
+  volumeKeluaran: string;
+  sumberDana: string;
+  paguAnggaran: number;
+  outputItems: OutputItemState[];
+}
+
+export interface OutputItemState {
+  id: string;
+  namaPaket: string;
+  nilai: number;
+  targetOutput: string;
+  satuan: string;
+  sumberDana: string;
+  keterangan: string;
+}
+
 export interface AppState {
   pendapatan: PendapatanItem[];
   belanja: BelanjaItem[];
@@ -201,6 +227,7 @@ export interface AppState {
   saldoAwal: SaldoAwalItem[];
   spjPanjar: SPJPanjarItem[];
   jurnalUmum: JurnalUmumItem[];
+  kegiatanAnggaran: KegiatanAnggaranItem[];
 }
 
 const defaultState: AppState = {
