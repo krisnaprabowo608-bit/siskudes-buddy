@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
 import bgLandscape from "@/assets/bg-landscape.jpg";
+import { saveState, loadState } from "@/data/app-state";
+import { getDemoSeedData } from "@/data/demo-seed-data";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Database } from "lucide-react";
 
 export default function Beranda() {
   const [loaded, setLoaded] = useState(false);
