@@ -1,4 +1,6 @@
 import { useState } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,10 +47,7 @@ export default function MutasiKas() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading">MUTASI KAS</h1>
-        <p className="text-xs text-muted-foreground">Penyetoran Penerimaan ke Bank / Pengambilan dari Bank</p>
-      </div>
+      <FormPageHeader title="Mutasi Kas" subtitle="Penyetoran Penerimaan ke Bank / Pengambilan dari Bank" />
       <div className="flex-1 overflow-auto p-4 space-y-4">
         <Button size="sm" onClick={() => setShowForm(true)}>Tambah</Button>
 

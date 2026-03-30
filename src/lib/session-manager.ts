@@ -102,3 +102,7 @@ export async function getActiveSessions(minutesThreshold = 5) {
     .order("last_active", { ascending: false });
   return data || [];
 }
+
+export async function trackFormProgress(formKey: string) {
+  await upsertSession({ form_progress: { [formKey]: true } });
+}

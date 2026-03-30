@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { loadState, saveState, type SaldoAwalItem } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,10 +78,7 @@ export default function SaldoAwal() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading">SALDO AWAL KEKAYAAN DESA</h1>
-        <p className="text-xs text-muted-foreground">Desa Simulasi — Tahun Anggaran 2024</p>
-      </div>
+      <FormPageHeader title="Saldo Awal Kekayaan Desa" subtitle="Tahun Anggaran 2024" />
 
       <div className="flex-1 p-4 flex flex-col gap-0 overflow-hidden">
         <div className="flex-1 border border-border rounded-md bg-card flex flex-col overflow-hidden">

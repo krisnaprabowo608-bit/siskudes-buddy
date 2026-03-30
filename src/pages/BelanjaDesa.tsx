@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { sumberDanaData, bidangKegiatanData } from "@/data/siskeudes-data";
 import { loadState, saveState, type BelanjaItem } from "@/data/app-state";
@@ -104,9 +106,7 @@ export default function BelanjaDesa() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading text-center">DATA BELANJA DESA</h1>
-      </div>
+      <FormPageHeader title="Data Belanja Desa" subtitle="Rincian belanja per bidang dan kegiatan" />
 
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {/* Step 1: Select Bidang */}

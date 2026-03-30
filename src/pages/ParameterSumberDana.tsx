@@ -1,13 +1,11 @@
 import { sumberDanaData } from "@/data/siskeudes-data";
+import FormPageHeader from "@/components/FormPageHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function ParameterSumberDana() {
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-bold font-heading">Parameter Sumber Dana</h1>
-        <p className="text-sm text-muted-foreground">Referensi kode sumber dana APBDesa</p>
-      </div>
+      <FormPageHeader title="Parameter Sumber Dana" subtitle="Referensi kode sumber dana APBDesa" />
       <div className="p-6">
         <div className="content-card overflow-hidden">
           <Table>

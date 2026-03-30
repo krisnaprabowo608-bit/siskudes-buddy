@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { loadState, saveState, type PencairanSPP, type SPPItem } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,10 +109,7 @@ export default function PencairanSPPPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading">PENCAIRAN SPP DI KAS DESA</h1>
-        <p className="text-xs text-muted-foreground">Desa Simulasi</p>
-      </div>
+      <FormPageHeader title="Pencairan SPP di Kas Desa" subtitle="Bukti pencairan" />
 
       <div className="flex-1 p-4 flex gap-0">
         {/* Vertical Tabs */}

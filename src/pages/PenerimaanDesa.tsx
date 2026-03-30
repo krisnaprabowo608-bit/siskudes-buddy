@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type PenerimaanItem, type PenerimaanRincian, type SilpaItem, type SilpaRincian } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
@@ -602,10 +604,7 @@ export default function PenerimaanDesa() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading text-center">PENERIMAAN DAN PENYETORAN</h1>
-        <p className="text-xs text-muted-foreground text-center">Realisasi Pendapatan Desa</p>
-      </div>
+      <FormPageHeader title="Penerimaan dan Penyetoran" subtitle="Realisasi Pendapatan Desa" />
 
       <div className="flex-1 p-4 overflow-auto">
         <Tabs value={activeTab} onValueChange={v => setActiveTab(v as ActiveTab)} className="space-y-3">

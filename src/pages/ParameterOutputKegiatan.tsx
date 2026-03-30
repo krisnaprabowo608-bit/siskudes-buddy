@@ -1,13 +1,11 @@
 import { outputKegiatanData } from "@/data/siskeudes-data";
+import FormPageHeader from "@/components/FormPageHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function ParameterOutputKegiatan() {
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-bold font-heading">Parameter Kode Output Kegiatan</h1>
-        <p className="text-sm text-muted-foreground">Referensi output kegiatan dan satuan</p>
-      </div>
+      <FormPageHeader title="Parameter Kode Output Kegiatan" subtitle="Referensi output kegiatan dan satuan" />
       <div className="p-6">
         <div className="content-card overflow-hidden">
           <Table>

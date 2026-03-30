@@ -1,4 +1,5 @@
 import { useState } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
 import { bidangKegiatanData, sumberDanaData, type KegiatanAnggaran, type OutputItem } from "@/data/siskeudes-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,15 +95,11 @@ export default function PenganggaranAPBDesa() {
 
   return (
     <div>
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold font-heading">Penganggaran APBDesa</h1>
-          <p className="text-sm text-muted-foreground">Data kegiatan dan anggaran belanja desa</p>
-        </div>
+      <FormPageHeader title="Penganggaran APBDesa" subtitle="Data kegiatan dan anggaran belanja desa">
         <Button onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus size={16} /> Tambah Kegiatan
         </Button>
-      </div>
+      </FormPageHeader>
 
       <div className="p-6 space-y-4">
         {/* Summary */}

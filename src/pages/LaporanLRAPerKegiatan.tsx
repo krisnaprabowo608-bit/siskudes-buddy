@@ -1,4 +1,5 @@
 import { loadState } from "@/data/app-state";
+import FormPageHeader from "@/components/FormPageHeader";
 import { hitungRingkasan, formatRupiah } from "@/lib/financial-engine";
 import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { rekeningData } from "@/data/rekening-data";
@@ -41,15 +42,11 @@ export default function LaporanLRAPerKegiatan() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold font-heading">LRA DESA PER KEGIATAN</h1>
-          <p className="text-xs text-muted-foreground">Realisasi per Bidang, Kegiatan, dan Rekening</p>
-        </div>
+      <FormPageHeader title="LRA Desa per Kegiatan" subtitle="Realisasi per Bidang, Kegiatan, dan Rekening">
         <Button size="sm" onClick={() => exportToPDF('lra-kegiatan-content', `LRA_PerKegiatan_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
-      </div>
+      </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">
         <div id="lra-kegiatan-content" className="bg-white text-black p-8 max-w-5xl mx-auto text-xs" style={{ fontFamily: 'serif' }}>
