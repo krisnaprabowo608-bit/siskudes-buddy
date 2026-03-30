@@ -14,6 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          is_leader: boolean
+          joined_at: string
+          session_id: string
+          user_name: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          is_leader?: boolean
+          joined_at?: string
+          session_id: string
+          user_name?: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          is_leader?: boolean
+          joined_at?: string
+          session_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          village_id: string
+          village_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          village_id: string
+          village_name?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          village_id?: string
+          village_name?: string
+        }
+        Relationships: []
+      }
+      report_submissions: {
+        Row: {
+          created_at: string
+          group_id: string | null
+          id: string
+          report_data: Json
+          session_id: string
+          submitted_by: string
+          village_id: string
+          village_name: string
+        }
+        Insert: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          report_data?: Json
+          session_id: string
+          submitted_by?: string
+          village_id?: string
+          village_name?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          report_data?: Json
+          session_id?: string
+          submitted_by?: string
+          village_id?: string
+          village_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_submissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           created_at: string
@@ -43,36 +140,50 @@ export type Database = {
           created_at: string
           form_data: Json
           form_progress: Json
+          group_id: string | null
           id: string
           last_active: string
           session_id: string
           user_name: string
           village_id: string
           village_name: string
+          work_mode: string
         }
         Insert: {
           created_at?: string
           form_data?: Json
           form_progress?: Json
+          group_id?: string | null
           id?: string
           last_active?: string
           session_id: string
           user_name?: string
           village_id?: string
           village_name?: string
+          work_mode?: string
         }
         Update: {
           created_at?: string
           form_data?: Json
           form_progress?: Json
+          group_id?: string | null
           id?: string
           last_active?: string
           session_id?: string
           user_name?: string
           village_id?: string
           village_name?: string
+          work_mode?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
