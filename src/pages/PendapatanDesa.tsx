@@ -85,6 +85,7 @@ export default function PendapatanDesa() {
       setSelectedId(newItem.id);
       toast.success("Data ditambahkan");
     }
+    trackFormProgress("pendapatan");
     setMode("view");
     setForm(emptyForm);
   };

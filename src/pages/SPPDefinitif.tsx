@@ -80,6 +80,7 @@ export default function SPPDefinitif() {
       setSelected(updated.find(i => i.id === selected.id) || null);
       toast.success("SPP Definitif berhasil diperbarui");
     }
+    trackFormProgress("spp");
     setMode("view");
   };
 

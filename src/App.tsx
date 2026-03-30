@@ -35,6 +35,7 @@ import LaporanLRAPerKegiatan from "@/pages/LaporanLRAPerKegiatan";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import TentangAplikasi from "@/pages/TentangAplikasi";
+import GroupRoom from "@/pages/GroupRoom";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
           <Route element={<SiteLockGuardLayout />}>
             <Route path="/" element={<Beranda />} />
             <Route path="/data-umum" element={<DataUmumDesa />} />
+            <Route path="/group-room" element={<GroupRoom />} />
             <Route path="/parameter/bidang-kegiatan" element={<ParameterBidangKegiatan />} />
             <Route path="/parameter/sumber-dana" element={<ParameterSumberDana />} />
             <Route path="/parameter/rekening" element={<ParameterRekening />} />

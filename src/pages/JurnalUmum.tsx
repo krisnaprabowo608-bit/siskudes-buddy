@@ -109,6 +109,7 @@ export default function JurnalUmum() {
       saveEntries(newEntries);
       toast.success("Jurnal umum diperbarui");
     }
+    trackFormProgress("jurnal");
     setMode("view");
   };
 

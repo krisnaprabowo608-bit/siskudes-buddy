@@ -89,6 +89,7 @@ export default function SPJKegiatan() {
     saveState(newState);
     setState(newState);
     setSelectedSPJ(newItem);
+    trackFormProgress("spj");
     setMode("view");
     toast.success("SPJ Panjar disimpan");
   };

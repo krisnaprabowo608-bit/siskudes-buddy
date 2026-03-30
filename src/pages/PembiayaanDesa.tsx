@@ -93,6 +93,7 @@ export default function PembiayaanDesa() {
       setSelectedId(newItem.id);
       toast.success("Data ditambahkan");
     }
+    trackFormProgress("pembiayaan");
     setMode("view");
     setForm(emptyForm);
   };

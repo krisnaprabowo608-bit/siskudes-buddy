@@ -73,6 +73,7 @@ export default function SaldoAwal() {
       save(items.map(i => i.id === selected.id ? { ...i, ...form } : i));
       toast.success("Saldo awal diperbarui");
     }
+    trackFormProgress("saldo_awal");
     setMode("view");
   };
 

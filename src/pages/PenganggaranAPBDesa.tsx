@@ -1,5 +1,6 @@
 import { useState } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { bidangKegiatanData, sumberDanaData, type KegiatanAnggaran, type OutputItem } from "@/data/siskeudes-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ export default function PenganggaranAPBDesa() {
     setKegiatanList((prev) => [...prev, newKegiatan]);
     setDialogOpen(false);
     resetForm();
+    trackFormProgress("penganggaran");
     toast.success("Kegiatan berhasil ditambahkan");
   };
 

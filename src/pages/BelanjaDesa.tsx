@@ -97,6 +97,7 @@ export default function BelanjaDesa() {
       setSelectedId(newItem.id);
       toast.success("Data ditambahkan");
     }
+    trackFormProgress("belanja");
     setMode("view");
     setForm(emptyForm);
   };
