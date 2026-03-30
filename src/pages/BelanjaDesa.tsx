@@ -4,6 +4,7 @@ import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { sumberDanaData, bidangKegiatanData } from "@/data/siskeudes-data";
 import { loadState, saveState, type BelanjaItem } from "@/data/app-state";
+import { getPaguKegiatan, getTotalBelanjaKegiatan } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
