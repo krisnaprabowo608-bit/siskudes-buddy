@@ -6,6 +6,7 @@ import { rekeningData } from "@/data/rekening-data";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import KirimLaporanButton from "@/components/KirimLaporanButton";
 import React from "react";
 
 export default function LaporanLRAPerKegiatan() {

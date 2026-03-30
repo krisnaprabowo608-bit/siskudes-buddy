@@ -5,6 +5,7 @@ import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import KirimLaporanButton from "@/components/KirimLaporanButton";
 
 export default function LaporanPenjabaran() {
   const state = loadState();
