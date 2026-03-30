@@ -242,6 +242,7 @@ const defaultState: AppState = {
   saldoAwal: [],
   spjPanjar: [],
   jurnalUmum: [],
+  kegiatanAnggaran: [],
 };
 
 export function loadState(): AppState {
