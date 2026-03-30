@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { sumberDanaData } from "@/data/siskeudes-data";
 import { loadState, saveState, type PembiayaanItem } from "@/data/app-state";
@@ -99,9 +101,7 @@ export default function PembiayaanDesa() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading text-center">DATA PEMBIAYAAN DESA</h1>
-      </div>
+      <FormPageHeader title="Data Pembiayaan Desa" subtitle="Penerimaan dan pengeluaran pembiayaan" />
 
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         <div className="grid grid-cols-2 gap-3">

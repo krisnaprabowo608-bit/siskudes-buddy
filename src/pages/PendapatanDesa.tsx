@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { sumberDanaData } from "@/data/siskeudes-data";
 import { loadState, saveState, type PendapatanItem } from "@/data/app-state";
@@ -100,9 +102,7 @@ export default function PendapatanDesa() {
   return (
     <div className="flex flex-col h-full">
       {/* Title */}
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading text-center">DATA PENDAPATAN DESA</h1>
-      </div>
+      <FormPageHeader title="Data Pendapatan Desa" subtitle="Anggaran dan perubahan pendapatan" />
 
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {/* Master Table */}

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
@@ -127,9 +129,7 @@ export default function SPPPembiayaan() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading">SPP PENGELUARAN PEMBIAYAAN</h1>
-      </div>
+      <FormPageHeader title="SPP Pengeluaran Pembiayaan" subtitle="Surat Permintaan Pembayaran Pembiayaan" />
 
       <div className="flex-1 p-4 flex gap-0">
         {/* Vertical Tabs */}
