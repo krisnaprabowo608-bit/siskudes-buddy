@@ -581,3 +581,19 @@ export function cekSaldoKas(state: AppState): number {
   
   return saldoAwalKas + totalPenerimaan - totalPencairan;
 }
+
+// ============ PAGU ANGGARAN PER KEGIATAN ============
+export function getPaguKegiatan(state: AppState, kodeKegiatan: string): number {
+  const keg = (state.kegiatanAnggaran || []).find(k => k.kodeKegiatan === kodeKegiatan);
+  return keg ? keg.paguAnggaran : 0;
+}
+
+export function getTotalBelanjaKegiatan(state: AppState, kodeKegiatan: string): number {
+  return state.belanja
+    .filter(b => b.kodeKegiatan === kodeKegiatan)
+    .reduce((s, b) => s + b.anggaran, 0);
+}
+
+export function cekSisaPaguKegiatan(state: AppState, kodeKegiatan: string): number {
+  return getPaguKegiatan(state, kodeKegiatan) - getTotalBelanjaKegiatan(state, kodeKegiatan);
+}

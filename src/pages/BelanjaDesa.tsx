@@ -4,6 +4,7 @@ import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { sumberDanaData, bidangKegiatanData } from "@/data/siskeudes-data";
 import { loadState, saveState, type BelanjaItem } from "@/data/app-state";
+import { getPaguKegiatan, getTotalBelanjaKegiatan } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,19 @@ export default function BelanjaDesa() {
     if (!form.kodeRekening || !form.kodeKegiatan) return toast.error("Lengkapi bidang, kegiatan, dan rekening");
     const computed = Number(form.jumlahSatuan) * form.hargaSatuan;
     const anggaran = computed > 0 ? computed : form.anggaran;
+
+    // Check pagu from penganggaran
+    const currentState = loadState();
+    const pagu = getPaguKegiatan(currentState, form.kodeKegiatan);
+    if (pagu > 0) {
+      const existingTotal = getTotalBelanjaKegiatan(currentState, form.kodeKegiatan);
+      const adjustedTotal = mode === "ubah" && selectedId
+        ? existingTotal - (items.find(i => i.id === selectedId)?.anggaran || 0) + anggaran
+        : existingTotal + anggaran;
+      if (adjustedTotal > pagu) {
+        toast.warning(`Peringatan: Total belanja (Rp ${adjustedTotal.toLocaleString("id-ID")}) melebihi pagu anggaran kegiatan (Rp ${pagu.toLocaleString("id-ID")})`);
+      }
+    }
 
     if (mode === "ubah" && selectedId) {
       save(items.map(i => i.id === selectedId ? { ...i, ...form, anggaran } : i));
