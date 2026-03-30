@@ -1,18 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
-import { bidangKegiatanData, sumberDanaData, type KegiatanAnggaran, type OutputItem } from "@/data/siskeudes-data";
+import { loadState, saveState, type KegiatanAnggaranItem, type OutputItemState } from "@/data/app-state";
+import { bidangKegiatanData, sumberDanaData } from "@/data/siskeudes-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Package } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 
 export default function PenganggaranAPBDesa() {
-  const [kegiatanList, setKegiatanList] = useState<KegiatanAnggaran[]>([]);
+  const [kegiatanList, setKegiatanList] = useState<KegiatanAnggaranItem[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [outputDialogOpen, setOutputDialogOpen] = useState(false);
   const [selectedKegiatanId, setSelectedKegiatanId] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function PenganggaranAPBDesa() {
     paguAnggaran: 0,
   });
 
-  const [outputForm, setOutputForm] = useState<Omit<OutputItem, "id">>({
+  const [outputForm, setOutputForm] = useState<Omit<OutputItemState, "id">>({
     namaPaket: "",
     nilai: 0,
     targetOutput: "",
@@ -39,6 +40,22 @@ export default function PenganggaranAPBDesa() {
     sumberDana: "",
     keterangan: "",
   });
+
+  // Load saved data on mount
+  useEffect(() => {
+    const state = loadState();
+    if (state.kegiatanAnggaran && state.kegiatanAnggaran.length > 0) {
+      setKegiatanList(state.kegiatanAnggaran);
+    }
+  }, []);
+
+  // Persist helper
+  const save = (newList: KegiatanAnggaranItem[]) => {
+    setKegiatanList(newList);
+    const state = loadState();
+    state.kegiatanAnggaran = newList;
+    saveState(state);
+  };
 
   const bidangs = bidangKegiatanData.filter((i) => i.level === "bidang");
   const subBidangs = bidangKegiatanData.filter(
@@ -59,7 +76,7 @@ export default function PenganggaranAPBDesa() {
     const keg = bidangKegiatanData.find((i) => i.kode === selectedKegiatan);
     if (!keg) return toast.error("Pilih kegiatan terlebih dahulu");
 
-    const newKegiatan: KegiatanAnggaran = {
+    const newKegiatan: KegiatanAnggaranItem = {
       id: crypto.randomUUID(),
       kodeBidang: selectedBidang,
       kodeSubBidang: selectedSubBidang,
@@ -68,7 +85,7 @@ export default function PenganggaranAPBDesa() {
       ...form,
       outputItems: [],
     };
-    setKegiatanList((prev) => [...prev, newKegiatan]);
+    save([...kegiatanList, newKegiatan]);
     setDialogOpen(false);
     resetForm();
     trackFormProgress("penganggaran");
@@ -76,20 +93,20 @@ export default function PenganggaranAPBDesa() {
   };
 
   const handleDeleteKegiatan = (id: string) => {
-    setKegiatanList((prev) => prev.filter((k) => k.id !== id));
+    save(kegiatanList.filter((k) => k.id !== id));
     toast.success("Kegiatan dihapus");
   };
 
   const handleAddOutput = () => {
     if (!selectedKegiatanId) return;
-    const newOutput: OutputItem = { id: crypto.randomUUID(), ...outputForm };
-    setKegiatanList((prev) =>
-      prev.map((k) =>
-        k.id === selectedKegiatanId ? { ...k, outputItems: [...k.outputItems, newOutput] } : k
-      )
+    const newOutput: OutputItemState = { id: crypto.randomUUID(), ...outputForm };
+    const updated = kegiatanList.map((k) =>
+      k.id === selectedKegiatanId ? { ...k, outputItems: [...k.outputItems, newOutput] } : k
     );
+    save(updated);
     setOutputDialogOpen(false);
     setOutputForm({ namaPaket: "", nilai: 0, targetOutput: "", satuan: "", sumberDana: "", keterangan: "" });
+    trackFormProgress("penganggaran");
     toast.success("Output/paket ditambahkan");
   };
 
@@ -104,7 +121,6 @@ export default function PenganggaranAPBDesa() {
       </FormPageHeader>
 
       <div className="p-6 space-y-4">
-        {/* Summary */}
         <div className="flex gap-4">
           <div className="stat-card flex-1">
             <p className="text-xs text-muted-foreground">Total Kegiatan</p>
@@ -118,7 +134,6 @@ export default function PenganggaranAPBDesa() {
           </div>
         </div>
 
-        {/* Kegiatan Table */}
         {kegiatanList.length === 0 ? (
           <div className="content-card p-12 text-center">
             <Package size={48} className="mx-auto text-muted-foreground/40 mb-4" />
@@ -176,6 +191,7 @@ export default function PenganggaranAPBDesa() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading">Tambah Kegiatan Baru</DialogTitle>
+            <DialogDescription>Isi data kegiatan dan anggaran untuk ditambahkan ke APBDesa</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -266,6 +282,7 @@ export default function PenganggaranAPBDesa() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-heading">Tambah Output / Paket Kegiatan</DialogTitle>
+            <DialogDescription>Tambahkan detail output atau paket kegiatan</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
