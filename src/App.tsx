@@ -35,6 +35,7 @@ import LaporanLRAPerKegiatan from "@/pages/LaporanLRAPerKegiatan";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import TentangAplikasi from "@/pages/TentangAplikasi";
+import GroupRoom from "@/pages/GroupRoom";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
