@@ -72,6 +72,22 @@ export default function Beranda() {
           Menuju Tatakelola Keuangan Desa yang Akuntabel dan Transparan
         </p>
 
+        {/* Demo Data Button */}
+        <div className={`mt-4 transition-all duration-700 delay-[1000ms] ${loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-[hsl(0,0%,100%/0.15)] backdrop-blur-md border-[hsl(0,0%,100%/0.3)] text-[hsl(0,0%,90%)] hover:bg-[hsl(0,0%,100%/0.25)]"
+            onClick={() => {
+              const demo = getDemoSeedData();
+              saveState(demo);
+              toast.success("Data demo (Soal Desa Arfai 2024) berhasil dimuat! Silakan cek setiap form.");
+            }}
+          >
+            <Database size={14} /> Muat Data Demo (Soal Desa Arfai)
+          </Button>
+        </div>
+
         {/* Year badge */}
         <div className={`mt-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[hsl(0,0%,100%/0.15)] backdrop-blur-md border border-[hsl(0,0%,100%/0.2)] transition-all duration-700 delay-[1100ms] ${loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-[hsl(45,90%,55%)] animate-pulse" />
