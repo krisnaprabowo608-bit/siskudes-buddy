@@ -113,6 +113,7 @@ export default function PenyetoranPajak() {
     saveState(newState);
     setState(newState);
     setSelected(newItem);
+    trackFormProgress("pajak");
     setMode("view");
     toast.success("Data penyetoran pajak disimpan");
   };

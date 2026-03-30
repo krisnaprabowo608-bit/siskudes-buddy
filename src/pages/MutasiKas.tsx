@@ -35,6 +35,7 @@ export default function MutasiKas() {
     const updated = [...items, { id: Date.now().toString(), ...form }];
     saveMutasi(updated);
     setItems(updated);
+    trackFormProgress("mutasi_kas");
     setShowForm(false);
     setForm({ tanggal: new Date().toISOString().split("T")[0], noBukti: "", jenis: "setor", uraian: "", jumlah: 0, rekening: "", namaBank: "" });
   };

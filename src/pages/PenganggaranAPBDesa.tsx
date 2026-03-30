@@ -70,6 +70,7 @@ export default function PenganggaranAPBDesa() {
     setKegiatanList((prev) => [...prev, newKegiatan]);
     setDialogOpen(false);
     resetForm();
+    trackFormProgress("penganggaran");
     toast.success("Kegiatan berhasil ditambahkan");
   };
 

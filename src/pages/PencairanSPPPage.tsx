@@ -98,6 +98,7 @@ export default function PencairanSPPPage() {
       setSelectedPencairan(newItem);
       toast.success("SPP berhasil dicairkan");
     }
+    trackFormProgress("pencairan");
     setMode("view");
   };
 

@@ -59,6 +59,7 @@ const App = () => (
           <Route element={<SiteLockGuardLayout />}>
             <Route path="/" element={<Beranda />} />
             <Route path="/data-umum" element={<DataUmumDesa />} />
+            <Route path="/group-room" element={<GroupRoom />} />
             <Route path="/parameter/bidang-kegiatan" element={<ParameterBidangKegiatan />} />
             <Route path="/parameter/sumber-dana" element={<ParameterSumberDana />} />
             <Route path="/parameter/rekening" element={<ParameterRekening />} />
