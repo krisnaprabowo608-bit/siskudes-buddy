@@ -63,6 +63,7 @@ function SilpaTab() {
       toast.success("Data SiLPA ditambahkan");
     }
     setMode("view"); setForm(emptyForm);
+    trackFormProgress("penerimaan");
   };
 
   const handleProses = () => {
