@@ -97,6 +97,7 @@ export default function SPPPanjar() {
       setSelected(updated.find(i => i.id === selected.id) || null);
       toast.success("SPP Panjar berhasil diperbarui");
     }
+    trackFormProgress("spp");
     setMode("view");
   };
 

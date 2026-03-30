@@ -68,6 +68,7 @@ export default function SPPPembiayaan() {
       setSelected(updated.find(i => i.id === selected.id) || null);
       toast.success("SPP Pembiayaan berhasil diperbarui");
     }
+    trackFormProgress("spp");
     setMode("view");
   };
 
