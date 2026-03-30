@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Save, MapPin } from "lucide-react";
+import { Save, MapPin, X } from "lucide-react";
 import { upsertSession } from "@/lib/session-manager";
+import { useNavigate } from "react-router-dom";
+import FormPageHeader from "@/components/FormPageHeader";
 
 export default function DataUmumDesa() {
   const [selectedVillage, setSelectedVillage] = useState<string>("");
@@ -82,15 +84,11 @@ export default function DataUmumDesa() {
 
   return (
     <div>
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold font-heading">Data Umum Desa</h1>
-          <p className="text-sm text-muted-foreground">Identitas desa, perangkat, dan tahun anggaran</p>
-        </div>
+      <FormPageHeader title="Data Umum Desa" subtitle="Identitas desa, perangkat, dan tahun anggaran">
         <Button onClick={handleSave} className="gap-2">
           <Save size={16} /> Simpan
         </Button>
-      </div>
+      </FormPageHeader>
       <div className="p-6">
         <div className="content-card p-6 space-y-6">
           {/* Village Selection & User Name */}
