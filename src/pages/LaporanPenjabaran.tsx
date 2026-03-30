@@ -1,4 +1,5 @@
 import { loadState } from "@/data/app-state";
+import FormPageHeader from "@/components/FormPageHeader";
 import { formatRupiah, hitungRingkasan } from "@/lib/financial-engine";
 import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { exportToPDF } from "@/lib/pdf-export";
@@ -21,15 +22,11 @@ export default function LaporanPenjabaran() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold font-heading">PENJABARAN APBDes</h1>
-          <p className="text-xs text-muted-foreground">Rincian Anggaran per Bidang dan Kegiatan</p>
-        </div>
+      <FormPageHeader title="Penjabaran APBDes" subtitle="Rincian Anggaran per Bidang dan Kegiatan">
         <Button size="sm" onClick={() => exportToPDF('penjabaran-content', `Penjabaran_APBDes_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
-      </div>
+      </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">
         <div id="penjabaran-content" className="bg-white text-black p-8 max-w-5xl mx-auto text-xs" style={{ fontFamily: 'serif' }}>

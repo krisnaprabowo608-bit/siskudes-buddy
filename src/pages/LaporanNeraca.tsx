@@ -1,4 +1,5 @@
 import { loadState } from "@/data/app-state";
+import FormPageHeader from "@/components/FormPageHeader";
 import { generateNeraca, formatRupiah } from "@/lib/financial-engine";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -48,15 +49,11 @@ export default function LaporanNeraca() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold font-heading">LAPORAN KEKAYAAN MILIK DESA</h1>
-          <p className="text-xs text-muted-foreground">Neraca — Aset, Kewajiban, Ekuitas</p>
-        </div>
+      <FormPageHeader title="Laporan Kekayaan Milik Desa" subtitle="Neraca — Aset, Kewajiban, Ekuitas">
         <Button size="sm" onClick={() => exportToPDF('neraca-content', `Neraca_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
-      </div>
+      </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">
         <div id="neraca-content" className="bg-white text-black p-8 max-w-4xl mx-auto text-xs" style={{ fontFamily: 'serif' }}>

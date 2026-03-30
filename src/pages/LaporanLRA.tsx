@@ -14,15 +14,11 @@ export default function LaporanLRA() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold font-heading">LAPORAN REALISASI PELAKSANAAN APBDes</h1>
-          <p className="text-xs text-muted-foreground">LRA — Anggaran vs Realisasi</p>
-        </div>
+      <FormPageHeader title="Laporan Realisasi Pelaksanaan APBDes" subtitle="LRA — Anggaran vs Realisasi">
         <Button size="sm" onClick={() => exportToPDF('lra-content', `LRA_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
-      </div>
+      </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">
         <div id="lra-content" className="bg-white text-black p-8 max-w-4xl mx-auto text-xs" style={{ fontFamily: 'serif' }}>
