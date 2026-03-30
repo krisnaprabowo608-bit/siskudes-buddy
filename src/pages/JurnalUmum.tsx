@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
+import { trackFormProgress } from "@/lib/session-manager";
 import { loadState, saveState, type JurnalUmumItem, type JurnalRincian } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,10 +156,7 @@ export default function JurnalUmum() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="page-header">
-        <h1 className="text-lg font-bold font-heading">JURNAL UMUM KEUANGAN DESA</h1>
-        <p className="text-xs text-muted-foreground">Desa Simulasi</p>
-      </div>
+      <FormPageHeader title="Jurnal Umum Keuangan Desa" subtitle="Pencatatan transaksi" />
 
       <div className="flex-1 p-4 flex flex-col gap-0 overflow-hidden">
         <div className="flex-1 border border-border rounded-md bg-card flex flex-col overflow-hidden">

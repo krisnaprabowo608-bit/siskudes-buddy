@@ -1,3 +1,5 @@
+import FormPageHeader from "@/components/FormPageHeader";
+
 export default function ParameterRekening() {
   const rekeningData = [
     { kode: "1", uraian: "ASET", level: 0 },
@@ -38,10 +40,7 @@ export default function ParameterRekening() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-bold font-heading">Parameter Rekening APBDesa</h1>
-        <p className="text-sm text-muted-foreground">Struktur rekening aset, kewajiban, pendapatan, belanja, dan pembiayaan</p>
-      </div>
+      <FormPageHeader title="Parameter Rekening APBDesa" subtitle="Struktur rekening aset, kewajiban, pendapatan, belanja, dan pembiayaan" />
       <div className="p-6">
         <div className="content-card overflow-hidden">
           <div className="divide-y divide-border">

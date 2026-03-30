@@ -1,4 +1,5 @@
 import { useState } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
 import { bidangKegiatanData, sumberDanaData, outputKegiatanData } from "@/data/siskeudes-data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -14,10 +15,7 @@ export default function DetailKegiatan() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-bold font-heading">Detail Kegiatan</h1>
-        <p className="text-sm text-muted-foreground">Lihat detail dan output kegiatan berdasarkan referensi parameter</p>
-      </div>
+      <FormPageHeader title="Detail Kegiatan" subtitle="Lihat detail dan output kegiatan berdasarkan referensi parameter" />
       <div className="p-6 space-y-6">
         <div className="content-card p-5">
           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Pilih Kegiatan</Label>

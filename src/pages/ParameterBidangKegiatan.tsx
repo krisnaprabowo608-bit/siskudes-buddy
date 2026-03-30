@@ -1,4 +1,5 @@
 import { useState } from "react";
+import FormPageHeader from "@/components/FormPageHeader";
 import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, ChevronDown, Folder, FolderOpen, FileText } from "lucide-react";
@@ -25,10 +26,7 @@ export default function ParameterBidangKegiatan() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-bold font-heading">Parameter Bidang & Kegiatan</h1>
-        <p className="text-sm text-muted-foreground">Referensi Bidang, Sub Bidang, dan Kegiatan Desa</p>
-      </div>
+      <FormPageHeader title="Parameter Bidang & Kegiatan" subtitle="Referensi Bidang, Sub Bidang, dan Kegiatan Desa" />
       <div className="p-6 space-y-4">
         <div className="relative max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
