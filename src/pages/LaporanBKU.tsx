@@ -4,6 +4,7 @@ import { generateBKU, formatRupiah } from "@/lib/financial-engine";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import KirimLaporanButton from "@/components/KirimLaporanButton";
 
 export default function LaporanBKU() {
   const state = loadState();
@@ -30,6 +31,7 @@ export default function LaporanBKU() {
         <Button size="sm" onClick={() => exportToPDF('bku-content', `BKU_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
+        <KirimLaporanButton />
       </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">

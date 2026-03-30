@@ -4,6 +4,7 @@ import { generateBKPPajak, formatRupiah } from "@/lib/financial-engine";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import KirimLaporanButton from "@/components/KirimLaporanButton";
 
 export default function LaporanBKPPajak() {
   const state = loadState();
@@ -21,6 +22,7 @@ export default function LaporanBKPPajak() {
         <Button size="sm" onClick={() => exportToPDF('bkp-pajak-content', `BKP_Pajak_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
+        <KirimLaporanButton />
       </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">

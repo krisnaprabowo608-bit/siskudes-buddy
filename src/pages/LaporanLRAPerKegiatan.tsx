@@ -6,6 +6,7 @@ import { rekeningData } from "@/data/rekening-data";
 import { exportToPDF } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import KirimLaporanButton from "@/components/KirimLaporanButton";
 import React from "react";
 
 export default function LaporanLRAPerKegiatan() {
@@ -46,6 +47,7 @@ export default function LaporanLRAPerKegiatan() {
         <Button size="sm" onClick={() => exportToPDF('lra-kegiatan-content', `LRA_PerKegiatan_${namaDesa}_2024`)} className="gap-2">
           <Download size={14} /> Download PDF
         </Button>
+        <KirimLaporanButton />
       </FormPageHeader>
 
       <div className="flex-1 overflow-auto p-4">

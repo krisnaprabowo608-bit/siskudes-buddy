@@ -63,6 +63,7 @@ function SilpaTab() {
       toast.success("Data SiLPA ditambahkan");
     }
     setMode("view"); setForm(emptyForm);
+    trackFormProgress("penerimaan");
   };
 
   const handleProses = () => {
@@ -307,6 +308,7 @@ function PenerimaanTab({ jenis }: { jenis: "tunai" | "bank" }) {
       toast.success("Penerimaan ditambahkan");
     }
     setMode("view"); setForm(emptyForm); setShowRincian(false);
+    trackFormProgress("penerimaan");
   };
 
   const addRincian = () => {
