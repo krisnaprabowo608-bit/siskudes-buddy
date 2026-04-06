@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { loadState, saveState, type PenyetoranPajak as PenyetoranPajakItem } from "@/data/app-state";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen } from "lucide-react";
 import { toast } from "sonner";
 import { rekeningData } from "@/data/rekening-data";
 
@@ -22,7 +22,6 @@ export default function PenyetoranPajak() {
 
   const pajakRekening = rekeningData.filter(r => r.kode.startsWith("7.1"));
 
-  // All bukti potong from SPP transactions
   const allBuktiPotong = state.spp
     .flatMap(s => s.buktiTransaksi)
     .flatMap(bt => bt.potonganPajak.map(p => ({
@@ -53,8 +52,6 @@ export default function PenyetoranPajak() {
   });
 
   const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2 });
-
-  const refreshState = () => setState(loadState());
 
   const handleTambah = () => {
     setMode("add");
@@ -129,12 +126,19 @@ export default function PenyetoranPajak() {
     setRincianForm({ noBuktiPotong: "", kodeRekening: "", namaRekening: "", nilai: 0 });
   };
 
+  // Double-click: Penyetoran row → navigate to Rincian Bukti tab
+  const handlePenyetoranDoubleClick = (item: PenyetoranPajakItem) => {
+    setSelected(item);
+    setMode("view");
+    setSelectedBuktiPotong(item.rincianBuktiPotong || []);
+    setActiveTab("rincianBuktiPotong");
+  };
+
   return (
     <div className="h-full flex flex-col">
       <FormPageHeader title="Data Penyetoran Pajak" subtitle="Pemotongan dan penyetoran pajak" />
 
       <div className="flex-1 p-4 flex gap-0">
-        {/* Vertical Tabs */}
         <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
           <button onClick={() => setActiveTab("penyetoran")}
             className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "penyetoran" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
@@ -147,7 +151,6 @@ export default function PenyetoranPajak() {
         <div className="flex-1 border border-l-0 border-border rounded-r-md bg-card flex flex-col overflow-hidden">
           {activeTab === "penyetoran" && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Master table */}
               <div className="flex-1 overflow-auto border-b border-border">
                 <Table>
                   <TableHeader>
@@ -164,7 +167,8 @@ export default function PenyetoranPajak() {
                     ) : state.penyetoranPajak.map(item => (
                       <TableRow key={item.id}
                         className={`cursor-pointer text-[11px] ${selected?.id === item.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelected(item); setMode("view"); }}>
+                        onClick={() => { setSelected(item); setMode("view"); }}
+                        onDoubleClick={() => handlePenyetoranDoubleClick(item)}>
                         <TableCell>{item.tanggal}</TableCell>
                         <TableCell className="font-mono">{item.noBukti}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{item.keterangan}</TableCell>
@@ -175,7 +179,6 @@ export default function PenyetoranPajak() {
                 </Table>
               </div>
 
-              {/* Detail form */}
               <div className="p-4 space-y-2 bg-muted/10">
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                   <div className="space-y-2">
@@ -285,7 +288,6 @@ export default function PenyetoranPajak() {
                 </p>
               </div>
 
-              {/* Rincian table */}
               <div className="flex-1 overflow-auto border-b border-border">
                 <Table>
                   <TableHeader>
@@ -311,7 +313,6 @@ export default function PenyetoranPajak() {
                 </Table>
               </div>
 
-              {/* Rincian form */}
               {mode !== "view" && (
                 <div className="p-4 space-y-2 bg-muted/10">
                   <div className="flex items-center gap-2">
@@ -349,7 +350,6 @@ export default function PenyetoranPajak() {
         </div>
       </div>
 
-      {/* Action Bar */}
       <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleUbah}><Pencil size={12} />Ubah</Button>
