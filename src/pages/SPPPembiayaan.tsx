@@ -246,7 +246,7 @@ export default function SPPPembiayaan() {
                   <TableBody>
                     {selected.buktiTransaksi.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada bukti</TableCell></TableRow>
                     : selected.buktiTransaksi.map(b => (
-                      <TableRow key={b.id} className={`cursor-pointer text-[11px] ${selectedBukti?.id === b.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => { setSelectedBukti(b); setBuktiMode("view"); }}>
+                      <TableRow key={b.id} className={`cursor-pointer text-[11px] ${selectedBukti?.id === b.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => { setSelectedBukti(b); setBuktiMode("view"); }} onDoubleClick={() => { setSelectedBukti(b); setBuktiMode("view"); }}>
                         <TableCell>{b.tanggal}</TableCell><TableCell className="font-mono">{b.noBukti}</TableCell><TableCell className="max-w-[180px] truncate">{b.keterangan}</TableCell><TableCell className="text-right font-medium">{fmt(b.jumlah)}</TableCell>
                       </TableRow>
                     ))}

@@ -95,11 +95,7 @@ const menuStructure: MenuItem[] = [
     label: "Admin",
     children: [
       { label: "Login Admin", path: "/admin" },
-    ],
-  },
-  {
-    label: "Help",
-    children: [
+      { label: "separator", separator: true },
       { label: "Tentang Aplikasi", path: "/tentang" },
     ],
   },
