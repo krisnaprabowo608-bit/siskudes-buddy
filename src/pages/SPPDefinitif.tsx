@@ -201,7 +201,8 @@ export default function SPPDefinitif() {
                       <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada data</TableCell></TableRow>
                     ) : items.map(item => (
                       <TableRow key={item.id} className={`cursor-pointer text-[11px] ${selected?.id === item.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); }}>
+                        onClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); }}
+                        onDoubleClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); setActiveTab("rincian"); }}>
                         <TableCell>{item.tanggalSPP}</TableCell>
                         <TableCell className="font-mono">{item.nomorSPP}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{item.uraian}</TableCell>
