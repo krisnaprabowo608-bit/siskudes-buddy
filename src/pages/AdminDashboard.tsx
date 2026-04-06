@@ -66,9 +66,12 @@ interface ReportRow {
 
 interface PdfFile {
   name: string;
+  fullPath: string;
   url: string;
+  folder: string;
   created_at: string;
 }
+
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -107,14 +110,18 @@ export default function AdminDashboard() {
       if (folders) {
         const allPdfs: PdfFile[] = [];
         for (const folder of folders) {
+          if (folder.id === null && folder.name === ".emptyFolderPlaceholder") continue;
           const { data: files } = await supabase.storage.from("report-pdfs").list(folder.name, { limit: 50 });
           if (files) {
             for (const f of files) {
               if (f.name.endsWith(".pdf")) {
-                const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(`${folder.name}/${f.name}`);
+                const path = `${folder.name}/${f.name}`;
+                const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(path);
                 allPdfs.push({
                   name: f.name,
+                  fullPath: path,
                   url: urlData.publicUrl,
+                  folder: folder.name,
                   created_at: f.created_at || "",
                 });
               }
@@ -492,43 +499,112 @@ export default function AdminDashboard() {
                 {pdfFiles.length === 0 ? (
                   <p className="text-sm text-[hsl(0,0%,50%)] text-center py-8">Belum ada PDF laporan yang dikirim</p>
                 ) : (
-                  <div className="space-y-2">
-                    {pdfFiles.map((pdf, i) => (
-                      <div key={i} className="flex items-center justify-between border border-[hsl(152,30%,22%)] rounded-lg p-3 bg-[hsl(152,20%,18%)] hover:bg-[hsl(152,20%,20%)] transition-colors">
-                        <div className="flex items-center gap-3">
-                          <FileText size={20} className="text-red-400" />
-                          <div>
-                            <p className="text-white text-sm font-medium">{pdf.name.replace(/_/g, " ").replace(".pdf", "")}</p>
-                            <p className="text-[hsl(0,0%,50%)] text-[10px]">
-                              {pdf.created_at ? new Date(pdf.created_at).toLocaleString("id-ID") : "—"}
-                            </p>
+                  <div className="space-y-4">
+                    {(() => {
+                      // Group by folder
+                      const folderMap = new Map<string, PdfFile[]>();
+                      pdfFiles.forEach((pdf) => {
+                        const existing = folderMap.get(pdf.folder) || [];
+                        existing.push(pdf);
+                        folderMap.set(pdf.folder, existing);
+                      });
+                      
+                      return Array.from(folderMap.entries()).map(([folderName, files]) => {
+                        const displayName = folderName.replace(/_/g, " ");
+                        return (
+                          <div key={folderName} className="border border-[hsl(152,30%,22%)] rounded-lg overflow-hidden">
+                            {/* Folder Header */}
+                            <div className="bg-[hsl(152,30%,18%)] px-4 py-2.5 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <FileText size={16} className="text-accent" />
+                                <span className="text-white text-sm font-medium">{displayName}</span>
+                                <span className="text-[hsl(0,0%,50%)] text-[10px] ml-2">({files.length} file)</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  for (const f of files) {
+                                    await supabase.storage.from("report-pdfs").remove([f.fullPath]);
+                                  }
+                                  toast.success(`Folder "${displayName}" berhasil dihapus`);
+                                  refresh();
+                                }}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] h-6"
+                              >
+                                <Trash2 size={12} className="mr-1" /> Hapus Folder
+                              </Button>
+                            </div>
+                            {/* Files */}
+                            <div className="divide-y divide-[hsl(152,30%,20%)]">
+                              {files.map((pdf, i) => {
+                                const reportLabel = pdf.name
+                                  .replace(".pdf", "")
+                                  .replace(/_/g, " ")
+                                  .replace(/(\d{4})-(\d{2})-(\d{2})/, "$3/$2/$1")
+                                  .replace(/(\d{4})$/, " $1");
+                                return (
+                                  <div key={i} className="flex items-center justify-between px-4 py-2.5 bg-[hsl(152,20%,14%)] hover:bg-[hsl(152,20%,16%)] transition-colors">
+                                    <div className="flex items-center gap-3">
+                                      <FileText size={16} className="text-red-400/70" />
+                                      <div>
+                                        <p className="text-white text-xs font-medium">{reportLabel}</p>
+                                        <p className="text-[hsl(0,0%,45%)] text-[10px]">
+                                          {pdf.created_at ? new Date(pdf.created_at).toLocaleString("id-ID") : "—"}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => window.open(pdf.url, "_blank")}
+                                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 text-[10px] gap-1"
+                                      >
+                                        <Eye size={12} /> Lihat
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch(pdf.url);
+                                            const blob = await res.blob();
+                                            const blobUrl = URL.createObjectURL(blob);
+                                            const a = document.createElement("a");
+                                            a.href = blobUrl;
+                                            a.download = pdf.name;
+                                            a.click();
+                                            URL.revokeObjectURL(blobUrl);
+                                          } catch {
+                                            toast.error("Gagal mengunduh file");
+                                          }
+                                        }}
+                                        className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 text-[10px] gap-1"
+                                      >
+                                        <Download size={12} /> Unduh
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                          await supabase.storage.from("report-pdfs").remove([pdf.fullPath]);
+                                          toast.success("File berhasil dihapus");
+                                          refresh();
+                                        }}
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0"
+                                      >
+                                        <Trash2 size={12} />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(pdf.url, "_blank")}
-                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1"
-                          >
-                            <Eye size={14} /> Lihat
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const a = document.createElement("a");
-                              a.href = pdf.url;
-                              a.download = pdf.name;
-                              a.click();
-                            }}
-                            className="text-green-400 hover:text-green-300 hover:bg-green-500/10 gap-1"
-                          >
-                            <Download size={14} /> Unduh
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </CardContent>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, FileText } from "lucide-react";
+import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { isCurrentUserLeader, submitReport } from "@/lib/session-manager";
 import { loadState } from "@/data/app-state";
@@ -28,7 +28,6 @@ export default function KirimLaporanButton() {
       const state = loadState();
       const sessionProgress = JSON.parse(localStorage.getItem("siskeudes_app_state") || "{}");
       
-      // Submit report data
       await submitReport({ ...state, _progress: sessionProgress });
 
       // Generate and upload PDF of current report page
@@ -56,17 +55,27 @@ export default function KirimLaporanButton() {
           }
           
           const pdfBlob = pdf.output("blob");
-          const sessionId = getSessionId();
           const desaProfile = JSON.parse(localStorage.getItem("siskeudes_desa_profile") || "{}");
+          const userName = localStorage.getItem("siskeudes_user_name") || "unknown";
           const villageName = (desaProfile.namaDesa || "unknown").replace(/\s+/g, "_");
-          const timestamp = Date.now();
-          const fileName = `${sessionId}/${villageName}_${timestamp}.pdf`;
+          const now = new Date();
+          const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+          const timeStr = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+          
+          // Get report type from the page title/id
+          const contentEl = document.querySelector("[id$='-content']");
+          const reportType = contentEl?.id?.replace("-content", "") || "laporan";
+          
+          // Folder: Desa_NamaDesa_NamaKetua/
+          const folderName = `${villageName}_${userName.replace(/\s+/g, "_")}`;
+          const fileName = `${folderName}/${reportType}_${dateStr}_${timeStr}.pdf`;
           
           await supabase.storage.from("report-pdfs").upload(fileName, pdfBlob, {
             contentType: "application/pdf",
+            upsert: true,
           });
-        } catch {
-          // PDF upload failed silently, report data still sent
+        } catch (err) {
+          console.error("PDF upload error:", err);
         }
       }
 
