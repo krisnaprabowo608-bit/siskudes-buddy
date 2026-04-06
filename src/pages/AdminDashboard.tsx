@@ -66,8 +66,15 @@ interface ReportRow {
 
 interface PdfFile {
   name: string;
+  fullPath: string;
   url: string;
+  folder: string;
   created_at: string;
+}
+
+interface PdfFolder {
+  name: string;
+  files: PdfFile[];
 }
 
 export default function AdminDashboard() {
