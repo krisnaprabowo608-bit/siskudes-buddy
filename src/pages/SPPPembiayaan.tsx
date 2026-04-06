@@ -203,7 +203,7 @@ export default function SPPPembiayaan() {
                   <TableBody>
                     {selected.rincian.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-xs">Belum ada rincian</TableCell></TableRow>
                     : selected.rincian.map((r, idx) => (
-                      <TableRow key={r.id} className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedRincian(r)}>
+                      <TableRow key={r.id} className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedRincian(r)} onDoubleClick={() => { setSelectedRincian(r); setActiveTab("bukti"); }}>
                         <TableCell className="font-mono">{r.kodeRekening}</TableCell><TableCell>{idx + 1}</TableCell><TableCell>{r.namaRekening}</TableCell><TableCell>DDS</TableCell><TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
                       </TableRow>
                     ))}
