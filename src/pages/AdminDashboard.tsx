@@ -114,14 +114,18 @@ export default function AdminDashboard() {
       if (folders) {
         const allPdfs: PdfFile[] = [];
         for (const folder of folders) {
+          if (folder.id === null && folder.name === ".emptyFolderPlaceholder") continue;
           const { data: files } = await supabase.storage.from("report-pdfs").list(folder.name, { limit: 50 });
           if (files) {
             for (const f of files) {
               if (f.name.endsWith(".pdf")) {
-                const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(`${folder.name}/${f.name}`);
+                const path = `${folder.name}/${f.name}`;
+                const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(path);
                 allPdfs.push({
                   name: f.name,
+                  fullPath: path,
                   url: urlData.publicUrl,
+                  folder: folder.name,
                   created_at: f.created_at || "",
                 });
               }
