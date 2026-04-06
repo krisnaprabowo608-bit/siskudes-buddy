@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import TopMenuBar from "./TopMenuBar";
+import ScreenShareConsent from "./ScreenShareConsent";
 import bgLandscape from "@/assets/bg-landscape.jpg";
 
 export default function AppLayout() {
