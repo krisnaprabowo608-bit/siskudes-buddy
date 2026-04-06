@@ -365,8 +365,8 @@ export function getDemoSeedData(): AppState {
         noCek: "-",
         pembayaran: "bank",
         jumlah: 30776000,
-        potongan: 0,
-        netto: 30776000,
+        potongan: 125000,
+        netto: 30651000,
       },
       {
         id: "demo-cair-003",
