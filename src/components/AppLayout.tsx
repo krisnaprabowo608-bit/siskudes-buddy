@@ -46,6 +46,7 @@ export default function AppLayout() {
           }>
           
           <Outlet />
+          <ScreenShareConsent />
         </main>
       </div>
 
