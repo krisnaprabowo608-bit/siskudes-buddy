@@ -23,7 +23,7 @@ interface GroupMember {
 export default function DataUmumDesa() {
   const navigate = useNavigate();
   const [selectedVillage, setSelectedVillage] = useState<string>("");
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState("Mahasiswa Demo");
   const [workMode, setWorkMode] = useState<"individual" | "group">("individual");
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);

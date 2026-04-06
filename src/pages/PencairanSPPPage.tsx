@@ -5,7 +5,6 @@ import { loadState, saveState, type PencairanSPP, type SPPItem } from "@/data/ap
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -54,7 +53,6 @@ export default function PencairanSPPPage() {
     return `${String(count).padStart(4, "0")}/BANK/05.2001/2024`;
   };
 
-  // Actions
   const handleTambah = () => {
     if (!selectedSPP) { toast.error("Pilih SPP Final terlebih dahulu"); return; }
     setMode("add");
@@ -108,12 +106,18 @@ export default function PencairanSPPPage() {
     toast.info("Bukti pencairan telah dikunci");
   };
 
+  // Double-click: SPP Final row → navigate to Bukti Pencairan tab
+  const handleSPPDoubleClick = (spp: SPPItem) => {
+    setSelectedSPP(spp);
+    setSelectedPencairan(null);
+    setActiveTab("buktiPencairan");
+  };
+
   return (
     <div className="h-full flex flex-col">
       <FormPageHeader title="Pencairan SPP di Kas Desa" subtitle="Bukti pencairan" />
 
       <div className="flex-1 p-4 flex gap-0">
-        {/* Vertical Tabs */}
         <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
           <button onClick={() => setActiveTab("sppFinal")}
             className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "sppFinal" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
@@ -123,7 +127,6 @@ export default function PencairanSPPPage() {
             style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>Bukti Pencairan</button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 border border-l-0 border-border rounded-r-md bg-card flex flex-col overflow-hidden">
           {activeTab === "sppFinal" && (
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -146,7 +149,8 @@ export default function PencairanSPPPage() {
                     ) : sppList.map(spp => (
                       <TableRow key={spp.id}
                         className={`cursor-pointer text-[11px] ${selectedSPP?.id === spp.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelectedSPP(spp); setSelectedPencairan(null); }}>
+                        onClick={() => { setSelectedSPP(spp); setSelectedPencairan(null); }}
+                        onDoubleClick={() => handleSPPDoubleClick(spp)}>
                         <TableCell>{spp.tanggalSPP}</TableCell>
                         <TableCell className="font-mono">{spp.nomorSPP}</TableCell>
                         <TableCell className="max-w-[250px] truncate">{spp.uraian}</TableCell>
@@ -172,7 +176,6 @@ export default function PencairanSPPPage() {
                 </div>
               </div>
 
-              {/* Pencairan list for selected SPP */}
               <div className="flex-shrink-0 max-h-[120px] overflow-auto border-b border-border">
                 <Table>
                   <TableHeader>
@@ -200,7 +203,6 @@ export default function PencairanSPPPage() {
                 </Table>
               </div>
 
-              {/* Detail form */}
               <div className="flex-1 p-4 space-y-3 bg-muted/10 overflow-auto">
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                   <div className="space-y-2">
@@ -279,7 +281,6 @@ export default function PencairanSPPPage() {
         </div>
       </div>
 
-      {/* Action Bar */}
       <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" disabled><Pencil size={12} />Ubah</Button>

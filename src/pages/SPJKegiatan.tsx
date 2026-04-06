@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { loadState, saveState, type SPPItem, type SPJPanjarItem } from "@/data/app-state";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "view" | "add" | "edit";
@@ -29,11 +29,6 @@ export default function SPJKegiatan() {
   });
 
   const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2 });
-
-  const refreshState = () => {
-    const s = loadState();
-    setState(s);
-  };
 
   const handleTambah = () => {
     if (!selectedSPP) { toast.error("Pilih SPP Panjar terlebih dahulu"); return; }
@@ -94,12 +89,18 @@ export default function SPJKegiatan() {
     toast.success("SPJ Panjar disimpan");
   };
 
+  // Double-click: SPP Panjar row → navigate to Sisa Uang Muka tab
+  const handleSPPDoubleClick = (spp: SPPItem) => {
+    setSelectedSPP(spp);
+    setSelectedSPJ(null);
+    setActiveTab("pengembalian");
+  };
+
   return (
     <div className="h-full flex flex-col">
       <FormPageHeader title="Pengesahan SPJ Kegiatan" subtitle="SPJ Panjar" />
 
       <div className="flex-1 p-4 flex gap-0">
-        {/* Vertical Tabs */}
         <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
           <button onClick={() => setActiveTab("spjUangMuka")}
             className={`px-3 py-6 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === "spjUangMuka" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
@@ -130,7 +131,8 @@ export default function SPJKegiatan() {
                     ) : panjarSPPs.map(spp => (
                       <TableRow key={spp.id}
                         className={`cursor-pointer text-[11px] ${selectedSPP?.id === spp.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelectedSPP(spp); setSelectedSPJ(null); }}>
+                        onClick={() => { setSelectedSPP(spp); setSelectedSPJ(null); }}
+                        onDoubleClick={() => handleSPPDoubleClick(spp)}>
                         <TableCell className="font-mono">{spp.nomorSPP}</TableCell>
                         <TableCell className="max-w-[300px] truncate">{spp.uraian}</TableCell>
                         <TableCell className="text-right font-medium">{fmt(spp.jumlah)}</TableCell>
@@ -148,7 +150,6 @@ export default function SPJKegiatan() {
                 <p className="text-[11px] font-semibold">PENGEMBALIAN SISA UANG MUKA</p>
               </div>
 
-              {/* SPJ list for selected SPP */}
               {selectedSPP && (
                 <div className="flex-shrink-0 max-h-[120px] overflow-auto border-b border-border">
                   <Table>
@@ -180,7 +181,6 @@ export default function SPJKegiatan() {
                 </div>
               )}
 
-              {/* Detail form */}
               <div className="flex-1 p-4 space-y-2 bg-muted/10 overflow-auto">
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                   <div className="space-y-2">
@@ -236,7 +236,6 @@ export default function SPJKegiatan() {
         </div>
       </div>
 
-      {/* Action Bar */}
       <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center gap-1">
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleTambah}><Plus size={12} />Tambah</Button>
         <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" disabled><Pencil size={12} />Ubah</Button>
