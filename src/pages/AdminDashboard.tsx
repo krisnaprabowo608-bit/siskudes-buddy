@@ -72,10 +72,6 @@ interface PdfFile {
   created_at: string;
 }
 
-interface PdfFolder {
-  name: string;
-  files: PdfFile[];
-}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
