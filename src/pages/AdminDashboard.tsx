@@ -10,12 +10,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText,
+  Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAllSessions, getActiveSessions, getSiteSettings, updateSiteSettings, deleteSession, getSubmittedReports,
 } from "@/lib/session-manager";
+import { supabase } from "@/integrations/supabase/client";
+import { getScreenshotUrl } from "@/lib/screenshot-capture";
 
 const ADMIN_PASSWORD = "987654321";
 
@@ -62,11 +64,18 @@ interface ReportRow {
   created_at: string;
 }
 
+interface PdfFile {
+  name: string;
+  url: string;
+  created_at: string;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [activeSessions, setActiveSessions] = useState<SessionRow[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
+  const [pdfFiles, setPdfFiles] = useState<PdfFile[]>([]);
   const [siteSettings, setSiteSettings] = useState<{ is_locked: boolean; max_users: number | null }>({
     is_locked: false,
     max_users: 0,
@@ -75,6 +84,8 @@ export default function AdminDashboard() {
   const [lockPassword, setLockPassword] = useState("");
   const [lockAction, setLockAction] = useState<"lock" | "unlock">("lock");
   const [selectedUser, setSelectedUser] = useState<SessionRow | null>(null);
+  const [monitorUser, setMonitorUser] = useState<SessionRow | null>(null);
+  const [screenshotKey, setScreenshotKey] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -89,6 +100,32 @@ export default function AdminDashboard() {
     setActiveSessions(active as SessionRow[]);
     setReports(submitted as ReportRow[]);
     if (settings) setSiteSettings({ is_locked: settings.is_locked, max_users: settings.max_users });
+
+    // Load PDF files from storage
+    try {
+      const { data: folders } = await supabase.storage.from("report-pdfs").list("", { limit: 100 });
+      if (folders) {
+        const allPdfs: PdfFile[] = [];
+        for (const folder of folders) {
+          const { data: files } = await supabase.storage.from("report-pdfs").list(folder.name, { limit: 50 });
+          if (files) {
+            for (const f of files) {
+              if (f.name.endsWith(".pdf")) {
+                const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(`${folder.name}/${f.name}`);
+                allPdfs.push({
+                  name: f.name,
+                  url: urlData.publicUrl,
+                  created_at: f.created_at || "",
+                });
+              }
+            }
+          }
+        }
+        allPdfs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setPdfFiles(allPdfs);
+      }
+    } catch { /* ignore */ }
+
     setLoading(false);
   }, []);
 
@@ -101,6 +138,13 @@ export default function AdminDashboard() {
     const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
   }, [refresh, navigate]);
+
+  // Auto-refresh screenshot when monitoring
+  useEffect(() => {
+    if (!monitorUser) return;
+    const interval = setInterval(() => setScreenshotKey((k) => k + 1), 10000);
+    return () => clearInterval(interval);
+  }, [monitorUser]);
 
   const handleLockToggle = (action: "lock" | "unlock") => {
     setLockAction(action);
@@ -244,17 +288,24 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Tabs: Users & Reports */}
+        {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList className="bg-[hsl(152,30%,15%)] border border-[hsl(152,30%,22%)]">
             <TabsTrigger value="users" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
-              <Users size={14} className="mr-1" /> Daftar User ({sessions.length})
+              <Users size={14} className="mr-1" /> User ({sessions.length})
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
+              <Camera size={14} className="mr-1" /> Monitoring
             </TabsTrigger>
             <TabsTrigger value="reports" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
-              <FileText size={14} className="mr-1" /> Laporan Dikirim ({reports.length})
+              <FileText size={14} className="mr-1" /> Laporan ({reports.length})
+            </TabsTrigger>
+            <TabsTrigger value="pdfs" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
+              <Download size={14} className="mr-1" /> PDF ({pdfFiles.length})
             </TabsTrigger>
           </TabsList>
 
+          {/* Users Tab */}
           <TabsContent value="users">
             <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
               <CardContent className="p-4">
@@ -313,6 +364,9 @@ export default function AdminDashboard() {
                                   <Button variant="ghost" size="sm" onClick={() => setSelectedUser(s)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 w-7 p-0">
                                     <Eye size={14} />
                                   </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0">
+                                    <Camera size={14} />
+                                  </Button>
                                   <Button variant="ghost" size="sm" onClick={() => handleKickUser(s.session_id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0">
                                     <Trash2 size={14} />
                                   </Button>
@@ -329,6 +383,56 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Monitoring Tab */}
+          <TabsContent value="monitoring">
+            <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <Camera size={18} /> Monitoring Layar User (Screenshot)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activeSessions.length === 0 ? (
+                  <p className="text-sm text-[hsl(0,0%,50%)] text-center py-8">Tidak ada user online saat ini</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {activeSessions.map((s) => (
+                      <div key={s.session_id} className="border border-[hsl(152,30%,22%)] rounded-lg overflow-hidden bg-[hsl(152,20%,12%)]">
+                        <div className="p-2 bg-[hsl(152,30%,18%)] flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-white text-xs font-medium">{s.user_name || "—"}</span>
+                          </div>
+                          <span className="text-[hsl(0,0%,50%)] text-[10px]">{s.village_name}</span>
+                        </div>
+                        <div className="aspect-video bg-[hsl(0,0%,10%)] relative">
+                          <img
+                            key={screenshotKey}
+                            src={`${getScreenshotUrl(s.session_id)}?t=${screenshotKey}`}
+                            alt={`Screenshot ${s.user_name}`}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                              (e.target as HTMLImageElement).parentElement!.querySelector(".no-ss")?.classList.remove("hidden");
+                            }}
+                          />
+                          <div className="no-ss hidden absolute inset-0 flex items-center justify-center text-[hsl(0,0%,40%)] text-xs">
+                            <div className="text-center">
+                              <Camera size={24} className="mx-auto mb-1 opacity-30" />
+                              <p>Belum ada screenshot</p>
+                              <p className="text-[10px]">User belum mengizinkan</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Reports Tab */}
           <TabsContent value="reports">
             <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
               <CardHeader className="pb-3">
@@ -375,6 +479,61 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* PDF Files Tab */}
+          <TabsContent value="pdfs">
+            <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <Download size={18} /> File PDF Laporan Keuangan
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pdfFiles.length === 0 ? (
+                  <p className="text-sm text-[hsl(0,0%,50%)] text-center py-8">Belum ada PDF laporan yang dikirim</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pdfFiles.map((pdf, i) => (
+                      <div key={i} className="flex items-center justify-between border border-[hsl(152,30%,22%)] rounded-lg p-3 bg-[hsl(152,20%,18%)] hover:bg-[hsl(152,20%,20%)] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <FileText size={20} className="text-red-400" />
+                          <div>
+                            <p className="text-white text-sm font-medium">{pdf.name.replace(/_/g, " ").replace(".pdf", "")}</p>
+                            <p className="text-[hsl(0,0%,50%)] text-[10px]">
+                              {pdf.created_at ? new Date(pdf.created_at).toLocaleString("id-ID") : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(pdf.url, "_blank")}
+                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1"
+                          >
+                            <Eye size={14} /> Lihat
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const a = document.createElement("a");
+                              a.href = pdf.url;
+                              a.download = pdf.name;
+                              a.click();
+                            }}
+                            className="text-green-400 hover:text-green-300 hover:bg-green-500/10 gap-1"
+                          >
+                            <Download size={14} /> Unduh
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* User Detail Modal */}
@@ -407,6 +566,39 @@ export default function AdminDashboard() {
                   <p>Mulai: {new Date(selectedUser.created_at).toLocaleString("id-ID")}</p>
                   <p>Terakhir aktif: {new Date(selectedUser.last_active).toLocaleString("id-ID")}</p>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Screenshot Monitor Modal */}
+        {monitorUser && (
+          <Dialog open={!!monitorUser} onOpenChange={() => setMonitorUser(null)}>
+            <DialogContent className="max-w-3xl bg-[hsl(152,30%,12%)] border-[hsl(152,30%,22%)] text-white">
+              <DialogHeader>
+                <DialogTitle className="text-white flex items-center gap-2">
+                  <Camera size={18} /> Monitoring: {monitorUser.user_name || "—"}
+                </DialogTitle>
+                <DialogDescription className="text-[hsl(0,0%,55%)]">
+                  Desa: {monitorUser.village_name} • Screenshot diperbarui otomatis setiap 10 detik
+                </DialogDescription>
+              </DialogHeader>
+              <div className="bg-[hsl(0,0%,5%)] rounded-lg overflow-hidden">
+                <img
+                  key={screenshotKey}
+                  src={`${getScreenshotUrl(monitorUser.session_id)}?t=${screenshotKey}`}
+                  alt={`Screenshot ${monitorUser.user_name}`}
+                  className="w-full object-contain max-h-[60vh]"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-xs text-[hsl(0,0%,50%)]">
+                <span>Auto-refresh setiap 10 detik</span>
+                <Button size="sm" variant="ghost" onClick={() => setScreenshotKey((k) => k + 1)} className="text-white/60">
+                  <RefreshCw size={12} className="mr-1" /> Refresh
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
