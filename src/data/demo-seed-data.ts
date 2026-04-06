@@ -365,8 +365,8 @@ export function getDemoSeedData(): AppState {
         noCek: "-",
         pembayaran: "bank",
         jumlah: 30776000,
-        potongan: 0,
-        netto: 30776000,
+        potongan: 125000,
+        netto: 30651000,
       },
       {
         id: "demo-cair-003",
@@ -396,12 +396,21 @@ export function getDemoSeedData(): AppState {
         ntpn: "NTPN-DEMO-001",
         jenis: "bank",
         rincianBuktiPotong: [
-          {
-            noBukti: "0002/KW/05.2001/2024",
-            kodeRekening: "7.1.1",
-            namaRekening: "PPN Pusat",
-            nilai: 100000,
-          },
+          { noBukti: "0002/KW/05.2001/2024", kodeRekening: "7.1.1", namaRekening: "PPN Pusat", nilai: 100000 },
+        ],
+      },
+      {
+        id: "demo-pajak-002",
+        tanggal: "2024-06-30",
+        noBukti: "0002/SSP/05.2001/2024",
+        kodeRekening: "7.1.2",
+        kodeMAP: "411124",
+        keterangan: "Penyetoran PPh Pasal 22",
+        jumlah: 25000,
+        ntpn: "NTPN-DEMO-002",
+        jenis: "bank",
+        rincianBuktiPotong: [
+          { noBukti: "0002/KW/05.2001/2024", kodeRekening: "7.1.2", namaRekening: "PPh Pasal 22", nilai: 25000 },
         ],
       },
     ],

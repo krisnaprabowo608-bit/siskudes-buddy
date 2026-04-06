@@ -159,7 +159,8 @@ export default function SPPPembiayaan() {
                     {items.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada data</TableCell></TableRow>
                     : items.map(item => (
                       <TableRow key={item.id} className={`cursor-pointer text-[11px] ${selected?.id === item.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); }}>
+                        onClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); }}
+                        onDoubleClick={() => { setSelected(item); setMode("view"); setSelectedBukti(null); setActiveTab("rincian"); }}>
                         <TableCell>{item.tanggalSPP}</TableCell><TableCell className="font-mono">{item.nomorSPP}</TableCell><TableCell className="max-w-[200px] truncate">{item.uraian}</TableCell><TableCell className="text-right font-medium">{fmt(item.jumlah)}</TableCell>
                       </TableRow>
                     ))}
@@ -202,7 +203,7 @@ export default function SPPPembiayaan() {
                   <TableBody>
                     {selected.rincian.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-xs">Belum ada rincian</TableCell></TableRow>
                     : selected.rincian.map((r, idx) => (
-                      <TableRow key={r.id} className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedRincian(r)}>
+                      <TableRow key={r.id} className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedRincian(r)} onDoubleClick={() => { setSelectedRincian(r); setActiveTab("bukti"); }}>
                         <TableCell className="font-mono">{r.kodeRekening}</TableCell><TableCell>{idx + 1}</TableCell><TableCell>{r.namaRekening}</TableCell><TableCell>DDS</TableCell><TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
                       </TableRow>
                     ))}
@@ -245,7 +246,7 @@ export default function SPPPembiayaan() {
                   <TableBody>
                     {selected.buktiTransaksi.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada bukti</TableCell></TableRow>
                     : selected.buktiTransaksi.map(b => (
-                      <TableRow key={b.id} className={`cursor-pointer text-[11px] ${selectedBukti?.id === b.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => { setSelectedBukti(b); setBuktiMode("view"); }}>
+                      <TableRow key={b.id} className={`cursor-pointer text-[11px] ${selectedBukti?.id === b.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => { setSelectedBukti(b); setBuktiMode("view"); }} onDoubleClick={() => { setSelectedBukti(b); setBuktiMode("view"); }}>
                         <TableCell>{b.tanggal}</TableCell><TableCell className="font-mono">{b.noBukti}</TableCell><TableCell className="max-w-[180px] truncate">{b.keterangan}</TableCell><TableCell className="text-right font-medium">{fmt(b.jumlah)}</TableCell>
                       </TableRow>
                     ))}
