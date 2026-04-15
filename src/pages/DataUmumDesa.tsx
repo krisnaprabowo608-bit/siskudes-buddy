@@ -55,6 +55,26 @@ export default function DataUmumDesa() {
   };
 
   const handleVillageSelect = async (villageId: string) => {
+    const previousVillage = localStorage.getItem('siskeudes_selected_village');
+    
+    // If switching to a different village, reset all form data
+    if (previousVillage && previousVillage !== villageId) {
+      // Reset app state (all form inputs)
+      const { saveState } = await import("@/data/app-state");
+      saveState({
+        pendapatan: [], belanja: [], pembiayaan: [], penerimaan: [],
+        silpa: [], spp: [], pencairan: [], penyetoranPajak: [],
+        saldoAwal: [], spjPanjar: [], jurnalUmum: [], kegiatanAnggaran: [],
+      });
+      // Reset mutasi kas
+      localStorage.removeItem('siskeudes_mutasi_kas');
+      // Reset group
+      localStorage.removeItem('siskeudes_group_id');
+      setGroupId(null);
+      setGroupMembers([]);
+      toast.info("Data form direset karena pindah desa.");
+    }
+    
     setSelectedVillage(villageId);
     const village = villageProfiles.find((v) => v.id === villageId);
     if (village) {
