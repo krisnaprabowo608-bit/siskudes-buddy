@@ -4,7 +4,7 @@ import { saveState, loadState } from "@/data/app-state";
 import { getDemoSeedData } from "@/data/demo-seed-data";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Database } from "lucide-react";
+import { Database, Trash2 } from "lucide-react";
 
 export default function Beranda() {
   const [loaded, setLoaded] = useState(false);
@@ -72,8 +72,8 @@ export default function Beranda() {
           Menuju Tatakelola Keuangan Desa yang Akuntabel dan Transparan
         </p>
 
-        {/* Demo Data Button */}
-        <div className={`mt-4 transition-all duration-700 delay-[1000ms] ${loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        {/* Demo Data Buttons */}
+        <div className={`mt-4 flex flex-col items-center gap-2 transition-all duration-700 delay-[1000ms] ${loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <Button
             variant="outline"
             size="sm"
@@ -85,6 +85,22 @@ export default function Beranda() {
             }}
           >
             <Database size={14} /> Muat Data Demo (Soal Desa Arfai)
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-[hsl(0,80%,50%/0.15)] backdrop-blur-md border-[hsl(0,80%,60%/0.3)] text-[hsl(0,80%,80%)] hover:bg-[hsl(0,80%,50%/0.25)]"
+            onClick={() => {
+              saveState({
+                pendapatan: [], belanja: [], pembiayaan: [], penerimaan: [],
+                silpa: [], spp: [], pencairan: [], penyetoranPajak: [],
+                saldoAwal: [], spjPanjar: [], jurnalUmum: [], kegiatanAnggaran: [],
+              });
+              localStorage.removeItem('siskeudes_mutasi_kas');
+              toast.success("Seluruh data input berhasil dihapus!");
+            }}
+          >
+            <Trash2 size={14} /> Hapus Semua Data Input
           </Button>
         </div>
 
