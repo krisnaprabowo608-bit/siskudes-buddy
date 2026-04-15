@@ -10,7 +10,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
+  AlertTriangle, UserX, Database, Eraser,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -72,7 +77,6 @@ interface PdfFile {
   created_at: string;
 }
 
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -80,8 +84,7 @@ export default function AdminDashboard() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [pdfFiles, setPdfFiles] = useState<PdfFile[]>([]);
   const [siteSettings, setSiteSettings] = useState<{ is_locked: boolean; max_users: number | null }>({
-    is_locked: false,
-    max_users: 0,
+    is_locked: false, max_users: 0,
   });
   const [lockDialog, setLockDialog] = useState(false);
   const [lockPassword, setLockPassword] = useState("");
@@ -90,6 +93,13 @@ export default function AdminDashboard() {
   const [monitorUser, setMonitorUser] = useState<SessionRow | null>(null);
   const [screenshotKey, setScreenshotKey] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Confirm dialogs
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description: string;
+    action: () => Promise<void>;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -104,7 +114,6 @@ export default function AdminDashboard() {
     setReports(submitted as ReportRow[]);
     if (settings) setSiteSettings({ is_locked: settings.is_locked, max_users: settings.max_users });
 
-    // Load PDF files from storage
     try {
       const { data: folders } = await supabase.storage.from("report-pdfs").list("", { limit: 100 });
       if (folders) {
@@ -118,11 +127,8 @@ export default function AdminDashboard() {
                 const path = `${folder.name}/${f.name}`;
                 const { data: urlData } = supabase.storage.from("report-pdfs").getPublicUrl(path);
                 allPdfs.push({
-                  name: f.name,
-                  fullPath: path,
-                  url: urlData.publicUrl,
-                  folder: folder.name,
-                  created_at: f.created_at || "",
+                  name: f.name, fullPath: path, url: urlData.publicUrl,
+                  folder: folder.name, created_at: f.created_at || "",
                 });
               }
             }
@@ -146,7 +152,6 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [refresh, navigate]);
 
-  // Auto-refresh screenshot when monitoring
   useEffect(() => {
     if (!monitorUser) return;
     const interval = setInterval(() => setScreenshotKey((k) => k + 1), 10000);
@@ -160,20 +165,124 @@ export default function AdminDashboard() {
   };
 
   const confirmLockAction = async () => {
-    if (lockPassword !== ADMIN_PASSWORD) {
-      toast.error("Password salah!");
-      return;
-    }
+    if (lockPassword !== ADMIN_PASSWORD) { toast.error("Password salah!"); return; }
     await updateSiteSettings({ is_locked: lockAction === "lock" });
     toast.success(lockAction === "lock" ? "Website telah dikunci" : "Website telah dibuka kembali");
     setLockDialog(false);
     refresh();
   };
 
-  const handleKickUser = async (sessionId: string) => {
-    await deleteSession(sessionId);
-    toast.success("User telah di-kick");
-    refresh();
+  const handleKickUser = (s: SessionRow) => {
+    setConfirmAction({
+      title: `Kick User: ${s.user_name || "—"}`,
+      description: `User "${s.user_name}" akan dihapus dari sistem. Session, progress, dan data form mereka akan dihapus permanen.`,
+      action: async () => {
+        // Delete session
+        await deleteSession(s.session_id);
+        // Delete screenshots
+        try {
+          await supabase.storage.from("screenshots").remove([`${s.session_id}.png`]);
+        } catch { /* ok */ }
+        // Remove from group if any
+        if (s.group_id) {
+          await supabase.from("group_members").delete().eq("session_id", s.session_id);
+        }
+        toast.success(`User "${s.user_name}" berhasil di-kick dan datanya dihapus`);
+        refresh();
+      },
+    });
+  };
+
+  const handleKickAllUsers = () => {
+    setConfirmAction({
+      title: "Hapus Semua User",
+      description: `PERINGATAN: Ini akan menghapus SEMUA ${sessions.length} user sessions, termasuk progress dan data mereka. Tindakan ini tidak bisa dibatalkan.`,
+      action: async () => {
+        for (const s of sessions) {
+          await deleteSession(s.session_id);
+          try {
+            await supabase.storage.from("screenshots").remove([`${s.session_id}.png`]);
+          } catch { /* ok */ }
+        }
+        // Clear all group members
+        await supabase.from("group_members").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        // Clear all groups  
+        await supabase.from("groups").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        toast.success("Semua user berhasil dihapus");
+        refresh();
+      },
+    });
+  };
+
+  const handleDeleteAllReports = () => {
+    setConfirmAction({
+      title: "Hapus Semua Laporan",
+      description: `PERINGATAN: Ini akan menghapus semua ${reports.length} laporan yang telah dikirim. Tindakan ini tidak bisa dibatalkan.`,
+      action: async () => {
+        for (const r of reports) {
+          await supabase.from("report_submissions").delete().eq("id", r.id);
+        }
+        toast.success("Semua laporan berhasil dihapus");
+        refresh();
+      },
+    });
+  };
+
+  const handleDeleteReport = (r: ReportRow) => {
+    setConfirmAction({
+      title: "Hapus Laporan",
+      description: `Hapus laporan dari "${r.village_name}" yang dikirim oleh "${r.submitted_by}"?`,
+      action: async () => {
+        await supabase.from("report_submissions").delete().eq("id", r.id);
+        toast.success("Laporan berhasil dihapus");
+        refresh();
+      },
+    });
+  };
+
+  const handleDeleteAllPdfs = () => {
+    setConfirmAction({
+      title: "Hapus Semua PDF",
+      description: `PERINGATAN: Ini akan menghapus semua ${pdfFiles.length} file PDF laporan. Tindakan ini tidak bisa dibatalkan.`,
+      action: async () => {
+        const paths = pdfFiles.map((p) => p.fullPath);
+        if (paths.length > 0) {
+          await supabase.storage.from("report-pdfs").remove(paths);
+        }
+        toast.success("Semua PDF berhasil dihapus");
+        refresh();
+      },
+    });
+  };
+
+  const handleResetUserProgress = (s: SessionRow) => {
+    setConfirmAction({
+      title: `Reset Progress: ${s.user_name || "—"}`,
+      description: `Progress dan data form user "${s.user_name}" akan direset ke kosong. User tetap bisa mengakses tapi harus mengisi ulang.`,
+      action: async () => {
+        await supabase.from("user_sessions")
+          .update({ form_progress: {} as never, form_data: {} as never })
+          .eq("session_id", s.session_id);
+        toast.success(`Progress "${s.user_name}" berhasil direset`);
+        refresh();
+      },
+    });
+  };
+
+  const handleResetAllProgress = () => {
+    setConfirmAction({
+      title: "Reset Semua Progress",
+      description: `Semua progress dan data form dari ${sessions.length} user akan direset ke kosong.`,
+      action: async () => {
+        for (const s of sessions) {
+          await supabase.from("user_sessions")
+            .update({ form_progress: {} as never, form_data: {} as never })
+            .eq("session_id", s.session_id);
+        }
+        toast.success("Semua progress user berhasil direset");
+        refresh();
+      },
+    });
   };
 
   const handleMaxUsersChange = async (val: string) => {
@@ -206,7 +315,7 @@ export default function AdminDashboard() {
           <Shield className="w-6 h-6 text-accent" />
           <div>
             <h1 className="text-lg font-bold text-white font-heading">Admin Dashboard</h1>
-            <p className="text-[10px] text-[hsl(0,0%,60%)]">Monitoring & Manajemen User</p>
+            <p className="text-[10px] text-[hsl(0,0%,60%)]">Kontrol Penuh & Monitoring</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -236,7 +345,6 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)] text-white">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
@@ -248,7 +356,6 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)] text-white">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
@@ -262,30 +369,21 @@ export default function AdminDashboard() {
                     )}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant={siteSettings.is_locked ? "default" : "destructive"}
-                  onClick={() => handleLockToggle(siteSettings.is_locked ? "unlock" : "lock")}
-                  className="text-xs"
-                >
+                <Button size="sm" variant={siteSettings.is_locked ? "default" : "destructive"}
+                  onClick={() => handleLockToggle(siteSettings.is_locked ? "unlock" : "lock")} className="text-xs">
                   {siteSettings.is_locked ? "Buka" : "Kunci"}
                 </Button>
               </div>
             </CardContent>
           </Card>
-
           <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)] text-white">
             <CardContent className="p-5">
               <div>
                 <p className="text-[10px] text-[hsl(0,0%,60%)] uppercase tracking-wider mb-2">Batas Akses</p>
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={siteSettings.max_users || 0}
+                  <Input type="number" min={0} value={siteSettings.max_users || 0}
                     onChange={(e) => handleMaxUsersChange(e.target.value)}
-                    className="h-8 w-20 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm"
-                  />
+                    className="h-8 w-20 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm" />
                   <span className="text-xs text-[hsl(0,0%,55%)]">
                     {(siteSettings.max_users || 0) === 0 ? "Tidak terbatas" : `Max ${siteSettings.max_users} user`}
                   </span>
@@ -294,6 +392,34 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Admin Power Actions */}
+        <Card className="bg-[hsl(0,70%,15%)]/40 border-[hsl(0,50%,25%)]">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle size={16} className="text-red-400" />
+              <span className="text-sm font-semibold text-red-300">Kontrol Admin — Tindakan Berbahaya</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleKickAllUsers}
+                disabled={sessions.length === 0}>
+                <UserX size={13} /> Hapus Semua User ({sessions.length})
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleResetAllProgress}
+                disabled={sessions.length === 0}>
+                <Eraser size={13} /> Reset Semua Progress
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleDeleteAllReports}
+                disabled={reports.length === 0}>
+                <Trash2 size={13} /> Hapus Semua Laporan ({reports.length})
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleDeleteAllPdfs}
+                disabled={pdfFiles.length === 0}>
+                <Trash2 size={13} /> Hapus Semua PDF ({pdfFiles.length})
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
@@ -353,12 +479,9 @@ export default function AdminDashboard() {
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-2">
                                   <div className="w-24 h-2 bg-[hsl(152,20%,20%)] rounded-full overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all ${
-                                        progress === 100 ? "bg-green-500" : progress > 50 ? "bg-accent" : "bg-primary"
-                                      }`}
-                                      style={{ width: `${progress}%` }}
-                                    />
+                                    <div className={`h-full rounded-full transition-all ${
+                                      progress === 100 ? "bg-green-500" : progress > 50 ? "bg-accent" : "bg-primary"
+                                    }`} style={{ width: `${progress}%` }} />
                                   </div>
                                   <span className="text-xs text-[hsl(0,0%,55%)]">{progress}%</span>
                                 </div>
@@ -368,13 +491,16 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
-                                  <Button variant="ghost" size="sm" onClick={() => setSelectedUser(s)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 w-7 p-0">
+                                  <Button variant="ghost" size="sm" onClick={() => setSelectedUser(s)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 w-7 p-0" title="Lihat detail">
                                     <Eye size={14} />
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0">
+                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0" title="Monitor layar">
                                     <Camera size={14} />
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => handleKickUser(s.session_id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0">
+                                  <Button variant="ghost" size="sm" onClick={() => handleResetUserProgress(s)} className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 h-7 w-7 p-0" title="Reset progress">
+                                    <Eraser size={14} />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => handleKickUser(s)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0" title="Kick & hapus user">
                                     <Trash2 size={14} />
                                   </Button>
                                 </div>
@@ -413,8 +539,7 @@ export default function AdminDashboard() {
                           <span className="text-[hsl(0,0%,50%)] text-[10px]">{s.village_name}</span>
                         </div>
                         <div className="aspect-video bg-[hsl(0,0%,10%)] relative">
-                          <img
-                            key={screenshotKey}
+                          <img key={screenshotKey}
                             src={`${getScreenshotUrl(s.session_id)}?t=${screenshotKey}`}
                             alt={`Screenshot ${s.user_name}`}
                             className="w-full h-full object-contain"
@@ -427,7 +552,6 @@ export default function AdminDashboard() {
                             <div className="text-center">
                               <Camera size={24} className="mx-auto mb-1 opacity-30" />
                               <p>Belum ada screenshot</p>
-                              <p className="text-[10px]">User belum mengizinkan</p>
                             </div>
                           </div>
                         </div>
@@ -443,9 +567,16 @@ export default function AdminDashboard() {
           <TabsContent value="reports">
             <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
               <CardHeader className="pb-3">
-                <CardTitle className="text-white text-base flex items-center gap-2">
-                  <FileText size={18} /> Laporan yang Dikirim
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white text-base flex items-center gap-2">
+                    <FileText size={18} /> Laporan yang Dikirim
+                  </CardTitle>
+                  {reports.length > 0 && (
+                    <Button variant="destructive" size="sm" className="text-[10px] gap-1 h-7" onClick={handleDeleteAllReports}>
+                      <Trash2 size={12} /> Hapus Semua
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {reports.length === 0 ? (
@@ -462,9 +593,15 @@ export default function AdminDashboard() {
                               {new Date(r.created_at).toLocaleString("id-ID")}
                             </p>
                           </div>
-                          <Badge className="bg-green-600 text-white text-[10px]">
-                            <FileText size={10} className="mr-1" /> Diterima
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-600 text-white text-[10px]">
+                              <FileText size={10} className="mr-1" /> Diterima
+                            </Badge>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteReport(r)}
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0">
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </div>
                         {r.report_data && typeof r.report_data === "object" && (
                           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -491,9 +628,16 @@ export default function AdminDashboard() {
           <TabsContent value="pdfs">
             <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
               <CardHeader className="pb-3">
-                <CardTitle className="text-white text-base flex items-center gap-2">
-                  <Download size={18} /> File PDF Laporan Keuangan
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white text-base flex items-center gap-2">
+                    <Download size={18} /> File PDF Laporan Keuangan
+                  </CardTitle>
+                  {pdfFiles.length > 0 && (
+                    <Button variant="destructive" size="sm" className="text-[10px] gap-1 h-7" onClick={handleDeleteAllPdfs}>
+                      <Trash2 size={12} /> Hapus Semua PDF
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {pdfFiles.length === 0 ? (
@@ -501,28 +645,23 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {(() => {
-                      // Group by folder
                       const folderMap = new Map<string, PdfFile[]>();
                       pdfFiles.forEach((pdf) => {
                         const existing = folderMap.get(pdf.folder) || [];
                         existing.push(pdf);
                         folderMap.set(pdf.folder, existing);
                       });
-                      
                       return Array.from(folderMap.entries()).map(([folderName, files]) => {
                         const displayName = folderName.replace(/_/g, " ");
                         return (
                           <div key={folderName} className="border border-[hsl(152,30%,22%)] rounded-lg overflow-hidden">
-                            {/* Folder Header */}
                             <div className="bg-[hsl(152,30%,18%)] px-4 py-2.5 flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <FileText size={16} className="text-accent" />
                                 <span className="text-white text-sm font-medium">{displayName}</span>
                                 <span className="text-[hsl(0,0%,50%)] text-[10px] ml-2">({files.length} file)</span>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                              <Button variant="ghost" size="sm"
                                 onClick={async () => {
                                   for (const f of files) {
                                     await supabase.storage.from("report-pdfs").remove([f.fullPath]);
@@ -530,17 +669,14 @@ export default function AdminDashboard() {
                                   toast.success(`Folder "${displayName}" berhasil dihapus`);
                                   refresh();
                                 }}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] h-6"
-                              >
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] h-6">
                                 <Trash2 size={12} className="mr-1" /> Hapus Folder
                               </Button>
                             </div>
-                            {/* Files */}
                             <div className="divide-y divide-[hsl(152,30%,20%)]">
                               {files.map((pdf, i) => {
                                 const reportLabel = pdf.name
-                                  .replace(".pdf", "")
-                                  .replace(/_/g, " ")
+                                  .replace(".pdf", "").replace(/_/g, " ")
                                   .replace(/(\d{4})-(\d{2})-(\d{2})/, "$3/$2/$1")
                                   .replace(/(\d{4})$/, " $1");
                                 return (
@@ -555,45 +691,31 @@ export default function AdminDashboard() {
                                       </div>
                                     </div>
                                     <div className="flex gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
+                                      <Button variant="ghost" size="sm"
                                         onClick={() => window.open(pdf.url, "_blank")}
-                                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 text-[10px] gap-1"
-                                      >
+                                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 text-[10px] gap-1">
                                         <Eye size={12} /> Lihat
                                       </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
+                                      <Button variant="ghost" size="sm"
                                         onClick={async () => {
                                           try {
                                             const res = await fetch(pdf.url);
                                             const blob = await res.blob();
                                             const blobUrl = URL.createObjectURL(blob);
                                             const a = document.createElement("a");
-                                            a.href = blobUrl;
-                                            a.download = pdf.name;
-                                            a.click();
+                                            a.href = blobUrl; a.download = pdf.name; a.click();
                                             URL.revokeObjectURL(blobUrl);
-                                          } catch {
-                                            toast.error("Gagal mengunduh file");
-                                          }
+                                          } catch { toast.error("Gagal mengunduh file"); }
                                         }}
-                                        className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 text-[10px] gap-1"
-                                      >
+                                        className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 text-[10px] gap-1">
                                         <Download size={12} /> Unduh
                                       </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
+                                      <Button variant="ghost" size="sm"
                                         onClick={async () => {
                                           await supabase.storage.from("report-pdfs").remove([pdf.fullPath]);
-                                          toast.success("File berhasil dihapus");
-                                          refresh();
+                                          toast.success("File berhasil dihapus"); refresh();
                                         }}
-                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0"
-                                      >
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0">
                                         <Trash2 size={12} />
                                       </Button>
                                     </div>
@@ -624,7 +746,7 @@ export default function AdminDashboard() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-[10px] text-[hsl(0,0%,55%)] uppercase">Progress Pengisian ({getProgressPercent(selectedUser.form_progress as Record<string, boolean>)}%)</Label>
+                  <Label className="text-[10px] text-[hsl(0,0%,55%)] uppercase">Progress ({getProgressPercent(selectedUser.form_progress as Record<string, boolean>)}%)</Label>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     {FORM_STEPS.map((step) => {
                       const done = (selectedUser.form_progress as Record<string, boolean>)?.[step.key];
@@ -642,6 +764,14 @@ export default function AdminDashboard() {
                   <p>Mulai: {new Date(selectedUser.created_at).toLocaleString("id-ID")}</p>
                   <p>Terakhir aktif: {new Date(selectedUser.last_active).toLocaleString("id-ID")}</p>
                 </div>
+                <div className="flex gap-2 pt-2 border-t border-[hsl(152,30%,22%)]">
+                  <Button size="sm" variant="destructive" className="gap-1 text-xs" onClick={() => { setSelectedUser(null); handleResetUserProgress(selectedUser); }}>
+                    <Eraser size={12} /> Reset Progress
+                  </Button>
+                  <Button size="sm" variant="destructive" className="gap-1 text-xs" onClick={() => { setSelectedUser(null); handleKickUser(selectedUser); }}>
+                    <UserX size={12} /> Kick User
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -656,18 +786,15 @@ export default function AdminDashboard() {
                   <Camera size={18} /> Monitoring: {monitorUser.user_name || "—"}
                 </DialogTitle>
                 <DialogDescription className="text-[hsl(0,0%,55%)]">
-                  Desa: {monitorUser.village_name} • Screenshot diperbarui otomatis setiap 10 detik
+                  Desa: {monitorUser.village_name} • Auto-refresh setiap 10 detik
                 </DialogDescription>
               </DialogHeader>
               <div className="bg-[hsl(0,0%,5%)] rounded-lg overflow-hidden">
-                <img
-                  key={screenshotKey}
+                <img key={screenshotKey}
                   src={`${getScreenshotUrl(monitorUser.session_id)}?t=${screenshotKey}`}
                   alt={`Screenshot ${monitorUser.user_name}`}
                   className="w-full object-contain max-h-[60vh]"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               </div>
               <div className="flex justify-between items-center text-xs text-[hsl(0,0%,50%)]">
@@ -692,25 +819,43 @@ export default function AdminDashboard() {
               </DialogDescription>
             </DialogHeader>
             <div className="py-2">
-              <Input
-                type="password"
-                value={lockPassword}
-                onChange={(e) => setLockPassword(e.target.value)}
-                placeholder="Password admin"
-                className="bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white"
-                autoFocus
-              />
+              <Input type="password" value={lockPassword} onChange={(e) => setLockPassword(e.target.value)}
+                placeholder="Password admin" className="bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white"
+                autoFocus onKeyDown={(e) => e.key === "Enter" && confirmLockAction()} />
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setLockDialog(false)} className="text-white/70">
-                Batal
-              </Button>
+              <Button variant="ghost" onClick={() => setLockDialog(false)} className="text-white/70">Batal</Button>
               <Button onClick={confirmLockAction} variant={lockAction === "lock" ? "destructive" : "default"}>
-                {lockAction === "lock" ? "Kunci" : "Buka Kunci"}
+                {lockAction === "lock" ? "Kunci Sekarang" : "Buka Sekarang"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirm Action Dialog */}
+        <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+          <AlertDialogContent className="bg-[hsl(152,30%,12%)] border-[hsl(152,30%,22%)] text-white">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white flex items-center gap-2">
+                <AlertTriangle size={18} className="text-red-400" /> {confirmAction?.title}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-[hsl(0,0%,55%)]">
+                {confirmAction?.description}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-transparent border-[hsl(152,30%,25%)] text-white hover:bg-[hsl(152,20%,20%)]">
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={async () => {
+                if (confirmAction) await confirmAction.action();
+                setConfirmAction(null);
+              }}>
+                Ya, Lanjutkan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
