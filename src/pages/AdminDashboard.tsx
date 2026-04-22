@@ -176,19 +176,27 @@ export default function AdminDashboard() {
   const handleKickUser = (s: SessionRow) => {
     setConfirmAction({
       title: `Kick User: ${s.user_name || "—"}`,
-      description: `User "${s.user_name}" akan dihapus dari sistem. Session, progress, dan data form mereka akan dihapus permanen.`,
+      description: `User "${s.user_name || s.session_id}" akan langsung dikeluarkan dari sistem dalam beberapa detik. Session, progress, dan data form mereka dihapus permanen — mereka harus membuka link lagi untuk masuk kembali.`,
       action: async () => {
-        // Delete session
-        await deleteSession(s.session_id);
-        // Delete screenshots
-        try {
-          await supabase.storage.from("screenshots").remove([`${s.session_id}.png`]);
-        } catch { /* ok */ }
-        // Remove from group if any
+        // 1. Remove from groups first (FK)
         if (s.group_id) {
           await supabase.from("group_members").delete().eq("session_id", s.session_id);
         }
-        toast.success(`User "${s.user_name}" berhasil di-kick dan datanya dihapus`);
+        // 2. Delete the session row → triggers kick-detection on user side
+        const { error } = await supabase
+          .from("user_sessions")
+          .delete()
+          .eq("session_id", s.session_id);
+        if (error) {
+          toast.error(`Gagal kick user: ${error.message}`);
+          return;
+        }
+        // 3. Cleanup screenshots
+        try {
+          await supabase.storage.from("screenshots").remove([`${s.session_id}.png`]);
+        } catch { /* ignore */ }
+
+        toast.success(`User "${s.user_name || s.session_id}" dikeluarkan. User akan otomatis logout dalam ±4 detik.`);
         refresh();
       },
     });
@@ -196,20 +204,34 @@ export default function AdminDashboard() {
 
   const handleKickAllUsers = () => {
     setConfirmAction({
-      title: "Hapus Semua User",
-      description: `PERINGATAN: Ini akan menghapus SEMUA ${sessions.length} user sessions, termasuk progress dan data mereka. Tindakan ini tidak bisa dibatalkan.`,
+      title: "Kick Semua User",
+      description: `PERINGATAN: Semua ${sessions.length} user akan langsung dikeluarkan dari sistem dalam beberapa detik. Session, progress, dan data form mereka akan hilang permanen.`,
       action: async () => {
-        for (const s of sessions) {
-          await deleteSession(s.session_id);
-          try {
-            await supabase.storage.from("screenshots").remove([`${s.session_id}.png`]);
-          } catch { /* ok */ }
+        // Bulk delete group members + groups + sessions
+        const { error: gmErr } = await supabase
+          .from("group_members")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        const { error: gErr } = await supabase
+          .from("groups")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        const { error: sErr } = await supabase
+          .from("user_sessions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+
+        if (gmErr || gErr || sErr) {
+          toast.error(`Gagal hapus sebagian data: ${(sErr || gErr || gmErr)?.message}`);
         }
-        // Clear all group members
-        await supabase.from("group_members").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-        // Clear all groups  
-        await supabase.from("groups").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-        toast.success("Semua user berhasil dihapus");
+
+        // Cleanup all screenshots
+        try {
+          const paths = sessions.map((x) => `${x.session_id}.png`);
+          if (paths.length > 0) await supabase.storage.from("screenshots").remove(paths);
+        } catch { /* ignore */ }
+
+        toast.success(`${sessions.length} user dikeluarkan. Mereka akan otomatis logout.`);
         refresh();
       },
     });
@@ -220,10 +242,15 @@ export default function AdminDashboard() {
       title: "Hapus Semua Laporan",
       description: `PERINGATAN: Ini akan menghapus semua ${reports.length} laporan yang telah dikirim. Tindakan ini tidak bisa dibatalkan.`,
       action: async () => {
-        for (const r of reports) {
-          await supabase.from("report_submissions").delete().eq("id", r.id);
+        const { error } = await supabase
+          .from("report_submissions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        if (error) {
+          toast.error(`Gagal: ${error.message}`);
+          return;
         }
-        toast.success("Semua laporan berhasil dihapus");
+        toast.success(`${reports.length} laporan berhasil dihapus`);
         refresh();
       },
     });
@@ -259,12 +286,21 @@ export default function AdminDashboard() {
   const handleResetUserProgress = (s: SessionRow) => {
     setConfirmAction({
       title: `Reset Progress: ${s.user_name || "—"}`,
-      description: `Progress dan data form user "${s.user_name}" akan direset ke kosong. User tetap bisa mengakses tapi harus mengisi ulang.`,
+      description: `Progress dan SEMUA data form (Penganggaran, Penatausahaan, Pembukuan, Laporan) milik user "${s.user_name}" akan direset ke kosong. Aplikasi user akan otomatis dimuat ulang dalam beberapa detik.`,
       action: async () => {
-        await supabase.from("user_sessions")
-          .update({ form_progress: {} as never, form_data: {} as never })
+        const { error } = await supabase
+          .from("user_sessions")
+          .update({
+            form_progress: {} as never,
+            form_data: {} as never,
+            last_active: new Date().toISOString(),
+          })
           .eq("session_id", s.session_id);
-        toast.success(`Progress "${s.user_name}" berhasil direset`);
+        if (error) {
+          toast.error(`Gagal reset: ${error.message}`);
+          return;
+        }
+        toast.success(`Progress "${s.user_name}" berhasil direset. User akan refresh otomatis.`);
         refresh();
       },
     });
@@ -273,14 +309,22 @@ export default function AdminDashboard() {
   const handleResetAllProgress = () => {
     setConfirmAction({
       title: "Reset Semua Progress",
-      description: `Semua progress dan data form dari ${sessions.length} user akan direset ke kosong.`,
+      description: `PERINGATAN: Semua progress dan SELURUH data form (Penganggaran, Penatausahaan, Pembukuan, Laporan) dari ${sessions.length} user akan dihapus total. Aplikasi mereka akan otomatis dimuat ulang. Tindakan ini tidak dapat dibatalkan.`,
       action: async () => {
-        for (const s of sessions) {
-          await supabase.from("user_sessions")
-            .update({ form_progress: {} as never, form_data: {} as never })
-            .eq("session_id", s.session_id);
+        // Single bulk update
+        const { error } = await supabase
+          .from("user_sessions")
+          .update({
+            form_progress: {} as never,
+            form_data: {} as never,
+            last_active: new Date().toISOString(),
+          })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        if (error) {
+          toast.error(`Gagal reset: ${error.message}`);
+          return;
         }
-        toast.success("Semua progress user berhasil direset");
+        toast.success(`Progress ${sessions.length} user berhasil direset. Aplikasi user akan refresh otomatis.`);
         refresh();
       },
     });

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSiteSettings, getActiveSessions, heartbeat, getSessionId } from "@/lib/session-manager";
+import { supabase } from "@/integrations/supabase/client";
 import { Lock, KeyRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,13 +9,82 @@ import { toast } from "sonner";
 
 const ADMIN_BYPASS_PASSWORD = "12345";
 
+// Wipe all user-side data and force them out of the app.
+function wipeLocalUserData() {
+  const keysToKeep = ["siskeudes_session_id"]; // keep session id so we don't generate a new one mid-redirect
+  const allKeys = Object.keys(localStorage);
+  for (const k of allKeys) {
+    if (k.startsWith("siskeudes_") && !keysToKeep.includes(k)) {
+      localStorage.removeItem(k);
+    }
+  }
+  sessionStorage.clear();
+}
+
 export default function SiteLockGuard({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
   const [locked, setLocked] = useState(false);
   const [maxReached, setMaxReached] = useState(false);
   const [checking, setChecking] = useState(true);
   const [bypassed, setBypassed] = useState(false);
   const [bypassPassword, setBypassPassword] = useState("");
   const [showBypass, setShowBypass] = useState(false);
+
+  // Detect kick/reset from admin (every 4s)
+  useEffect(() => {
+    // Skip kick-detection while admin is impersonating a user
+    if (sessionStorage.getItem("siskeudes_admin") === "true") return;
+    if (localStorage.getItem("siskeudes_admin_impersonate")) return;
+
+    const sessionId = getSessionId();
+    let cancelled = false;
+
+    const check = async () => {
+      // Only react if user actually has data on the server (i.e. they registered via DataUmum)
+      const hadVillage = !!localStorage.getItem("siskeudes_selected_village");
+      if (!hadVillage) return;
+
+      const { data, error } = await supabase
+        .from("user_sessions")
+        .select("session_id, form_data, village_id")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+
+      if (cancelled || error) return;
+
+      // KICKED: server row no longer exists → force user out
+      if (!data) {
+        toast.error("Anda telah dikeluarkan dari sistem oleh admin.");
+        wipeLocalUserData();
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 800);
+        return;
+      }
+
+      // RESET: server form_data is empty but local has data → admin reset progress
+      const localState = localStorage.getItem("siskeudes_app_state");
+      const serverEmpty =
+        !data.form_data ||
+        (typeof data.form_data === "object" && Object.keys(data.form_data as object).length === 0);
+      const localHasData = !!localState && localState !== "{}" && localState.length > 4;
+
+      if (serverEmpty && localHasData) {
+        toast.info("Progress Anda telah direset oleh admin. Halaman akan dimuat ulang.");
+        // Wipe form data but keep village/user identity so they can keep working
+        localStorage.removeItem("siskeudes_app_state");
+        localStorage.removeItem("siskeudes_state");
+        localStorage.removeItem("siskeudes_mutasi_kas");
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    };
+
+    const interval = setInterval(check, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [navigate]);
 
   useEffect(() => {
     const check = async () => {
