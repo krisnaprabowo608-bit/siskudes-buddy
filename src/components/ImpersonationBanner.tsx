@@ -23,9 +23,15 @@ export default function ImpersonationBanner() {
     let cancelled = false;
     const tick = async () => {
       setRefreshing(true);
-      const ok = await refreshImpersonatedData();
+      const result = await refreshImpersonatedData();
       if (cancelled) return;
-      if (ok) setLastSync(new Date());
+      if (result.ok) {
+        setLastSync(new Date());
+        if (result.changed) {
+          window.location.reload();
+          return;
+        }
+      }
       setRefreshing(false);
     };
     tick();
@@ -50,11 +56,11 @@ export default function ImpersonationBanner() {
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
-    const ok = await refreshImpersonatedData();
-    if (ok) {
+    const result = await refreshImpersonatedData();
+    if (result.ok) {
       setLastSync(new Date());
-      // Force user pages to re-read by reloading current route
       window.location.reload();
+      return;
     }
     setRefreshing(false);
   };

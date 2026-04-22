@@ -1,3 +1,5 @@
+import { upsertSession } from "@/lib/session-manager";
+
 // Shared types and simple state manager using localStorage
 
 export interface PendapatanItem {
@@ -256,15 +258,25 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  // Mirror to siskeudes_app_state for consistency with admin impersonation reads
   try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
-  // Push to Supabase so admin can monitor user's work in real-time.
-  // Skip if currently impersonating (admin viewing user — don't overwrite user's data).
+
   try {
     if (localStorage.getItem('siskeudes_admin_impersonate')) return;
-    // Lazy import to avoid circular deps
-    import('@/lib/session-manager').then(({ upsertSession }) => {
-      upsertSession({ form_data: state as unknown as Record<string, unknown> }).catch(() => { /* ignore */ });
-    }).catch(() => { /* ignore */ });
+
+    const mutasiKas = (() => {
+      try {
+        const raw = localStorage.getItem('siskeudes_mutasi_kas');
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const payload = {
+      ...state,
+      mutasiKas,
+    } as unknown as Record<string, unknown>;
+
+    void upsertSession({ form_data: payload });
   } catch { /* ignore */ }
 }

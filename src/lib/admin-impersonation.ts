@@ -42,25 +42,25 @@ function restoreSnapshot(snap: Record<string, string | null>) {
  * render the impersonated user's work.
  */
 function applyUserData(formData: Record<string, unknown> | null, villageId: string, villageName: string, userName: string) {
-  // Remove existing user state first so leftovers from admin/other user don't bleed
   for (const k of USER_KEYS) localStorage.removeItem(k);
 
   if (formData && typeof formData === "object") {
-    // The user's pages read state via loadState() which uses key 'siskeudes_state'
-    localStorage.setItem("siskeudes_state", JSON.stringify(formData));
-    // Mirror to app_state for components that look there
-    localStorage.setItem("siskeudes_app_state", JSON.stringify(formData));
-
-    // Try to extract desa profile from form_data if present
     const fd = formData as Record<string, unknown>;
+    const mutasiKas = Array.isArray(fd.mutasiKas) ? fd.mutasiKas : [];
+    const { mutasiKas: _ignored, ...appStateOnly } = fd;
+
+    localStorage.setItem("siskeudes_state", JSON.stringify(appStateOnly));
+    localStorage.setItem("siskeudes_app_state", JSON.stringify(appStateOnly));
+    localStorage.setItem("siskeudes_mutasi_kas", JSON.stringify(mutasiKas));
+
     if (fd.desaProfile && typeof fd.desaProfile === "object") {
       localStorage.setItem("siskeudes_desa_profile", JSON.stringify(fd.desaProfile));
     } else {
-      // Fallback: build minimal profile from village name
       localStorage.setItem("siskeudes_desa_profile", JSON.stringify({ namaDesa: villageName }));
     }
   } else {
     localStorage.setItem("siskeudes_desa_profile", JSON.stringify({ namaDesa: villageName }));
+    localStorage.setItem("siskeudes_mutasi_kas", JSON.stringify([]));
   }
 
   localStorage.setItem("siskeudes_selected_village", villageId);
@@ -117,20 +117,39 @@ export function getImpersonation(): ImpersonationInfo | null {
 /**
  * Refresh the impersonated user's data from Supabase. Used by the live banner.
  */
-export async function refreshImpersonatedData(): Promise<boolean> {
+export async function refreshImpersonatedData(): Promise<{ ok: boolean; changed: boolean }> {
   const info = getImpersonation();
-  if (!info) return false;
+  if (!info) return { ok: false, changed: false };
+
   const { data } = await supabase
     .from("user_sessions")
     .select("form_data, village_id, village_name, user_name")
     .eq("session_id", info.session_id)
     .maybeSingle();
-  if (!data) return false;
-  applyUserData(
-    (data.form_data as Record<string, unknown>) ?? null,
-    data.village_id || info.village_id,
-    data.village_name || info.village_name,
-    data.user_name || info.user_name,
+
+  if (!data) return { ok: false, changed: false };
+
+  const nextVillageId = data.village_id || info.village_id;
+  const nextVillageName = data.village_name || info.village_name;
+  const nextUserName = data.user_name || info.user_name;
+  const nextFormData = (data.form_data as Record<string, unknown>) ?? null;
+
+  const currentState = localStorage.getItem("siskeudes_state") || "{}";
+  const currentMutasi = localStorage.getItem("siskeudes_mutasi_kas") || "[]";
+  const nextMutasi = JSON.stringify((nextFormData as Record<string, unknown> | null)?.mutasiKas ?? []);
+  const nextAppState = JSON.stringify(
+    nextFormData && typeof nextFormData === "object"
+      ? Object.fromEntries(Object.entries(nextFormData).filter(([key]) => key !== "mutasiKas"))
+      : {}
   );
-  return true;
+
+  const changed =
+    currentState !== nextAppState ||
+    currentMutasi !== nextMutasi ||
+    info.village_id !== nextVillageId ||
+    info.village_name !== nextVillageName ||
+    info.user_name !== nextUserName;
+
+  applyUserData(nextFormData, nextVillageId, nextVillageName, nextUserName);
+  return { ok: true, changed };
 }
