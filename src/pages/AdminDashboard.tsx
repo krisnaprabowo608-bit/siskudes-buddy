@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
-  AlertTriangle, UserX, Database, Eraser,
+  AlertTriangle, UserX, Database, Eraser, ScanEye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/lib/session-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { getScreenshotUrl } from "@/lib/screenshot-capture";
+import { startImpersonation } from "@/lib/admin-impersonation";
 
 const ADMIN_PASSWORD = "987654321";
 
@@ -295,6 +296,19 @@ export default function AdminDashboard() {
   const handleLogout = () => {
     sessionStorage.removeItem("siskeudes_admin");
     navigate("/");
+  };
+
+  const handleViewAsUser = async (s: SessionRow) => {
+    await startImpersonation({
+      session_id: s.session_id,
+      user_name: s.user_name,
+      village_id: s.village_id,
+      village_name: s.village_name,
+      form_data: (s.form_data as Record<string, unknown>) ?? null,
+    });
+    toast.success(`Memantau pekerjaan: ${s.user_name || "—"}`);
+    // Send admin into the user UI starting from Data Umum
+    navigate("/data-umum");
   };
 
   const getProgressPercent = (progress: Record<string, boolean>) => {
