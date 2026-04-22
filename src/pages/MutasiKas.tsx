@@ -1,6 +1,7 @@
 import { useState } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
-import { trackFormProgress } from "@/lib/session-manager";
+import { trackFormProgress, upsertSession } from "@/lib/session-manager";
+import { loadState } from "@/data/app-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,24 @@ const STORAGE_KEY = 'siskeudes_mutasi_kas';
 function loadMutasi(): MutasiKasItem[] {
   try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
 }
-function saveMutasi(d: MutasiKasItem[]) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+function syncMutasiToSession(mutasiKas: MutasiKasItem[]) {
+  try {
+    if (localStorage.getItem('siskeudes_admin_impersonate')) return;
+    const payload = {
+      ...loadState(),
+      mutasiKas,
+    } as unknown as Record<string, unknown>;
+    void upsertSession({ form_data: payload });
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveMutasi(d: MutasiKasItem[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  syncMutasiToSession(d);
+}
 
 export default function MutasiKas() {
   const [items, setItems] = useState(loadMutasi());
@@ -35,7 +53,7 @@ export default function MutasiKas() {
     const updated = [...items, { id: Date.now().toString(), ...form }];
     saveMutasi(updated);
     setItems(updated);
-    trackFormProgress("mutasi_kas");
+    void trackFormProgress("mutasi");
     setShowForm(false);
     setForm({ tanggal: new Date().toISOString().split("T")[0], noBukti: "", jenis: "setor", uraian: "", jumlah: 0, rekening: "", namaBank: "" });
   };
@@ -93,7 +111,7 @@ export default function MutasiKas() {
               <div><Label className="text-xs">No Bukti</Label><Input value={form.noBukti} onChange={e => setForm({...form, noBukti: e.target.value})} className="text-xs h-8" placeholder="0001/STS/05.2001/2024" /></div>
               <div>
                 <Label className="text-xs">Jenis</Label>
-                <Select value={form.jenis} onValueChange={v => setForm({...form, jenis: v as any})}>
+                <Select value={form.jenis} onValueChange={v => setForm({...form, jenis: v as 'setor' | 'ambil'})}>
                   <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="setor" className="text-xs">Setor ke Bank</SelectItem>
