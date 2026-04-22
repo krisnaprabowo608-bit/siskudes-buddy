@@ -256,4 +256,15 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Mirror to siskeudes_app_state for consistency with admin impersonation reads
+  try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
+  // Push to Supabase so admin can monitor user's work in real-time.
+  // Skip if currently impersonating (admin viewing user — don't overwrite user's data).
+  try {
+    if (localStorage.getItem('siskeudes_admin_impersonate')) return;
+    // Lazy import to avoid circular deps
+    import('@/lib/session-manager').then(({ upsertSession }) => {
+      upsertSession({ form_data: state as unknown as Record<string, unknown> }).catch(() => { /* ignore */ });
+    }).catch(() => { /* ignore */ });
+  } catch { /* ignore */ }
 }
