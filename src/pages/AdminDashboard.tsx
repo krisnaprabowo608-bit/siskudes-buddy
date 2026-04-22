@@ -505,10 +505,13 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => handleViewAsUser(s)} className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 h-7 w-7 p-0" title="Lihat sebagai user (live view)">
+                                    <ScanEye size={14} />
+                                  </Button>
                                   <Button variant="ghost" size="sm" onClick={() => setSelectedUser(s)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 w-7 p-0" title="Lihat detail">
                                     <Eye size={14} />
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0" title="Monitor layar">
+                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0" title="Monitor screenshot">
                                     <Camera size={14} />
                                   </Button>
                                   <Button variant="ghost" size="sm" onClick={() => handleResetUserProgress(s)} className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 h-7 w-7 p-0" title="Reset progress">
