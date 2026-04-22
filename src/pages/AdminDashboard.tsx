@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
-  AlertTriangle, UserX, Database, Eraser,
+  AlertTriangle, UserX, Database, Eraser, ScanEye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/lib/session-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { getScreenshotUrl } from "@/lib/screenshot-capture";
+import { startImpersonation } from "@/lib/admin-impersonation";
 
 const ADMIN_PASSWORD = "987654321";
 
@@ -297,6 +298,19 @@ export default function AdminDashboard() {
     navigate("/");
   };
 
+  const handleViewAsUser = async (s: SessionRow) => {
+    await startImpersonation({
+      session_id: s.session_id,
+      user_name: s.user_name,
+      village_id: s.village_id,
+      village_name: s.village_name,
+      form_data: (s.form_data as Record<string, unknown>) ?? null,
+    });
+    toast.success(`Memantau pekerjaan: ${s.user_name || "—"}`);
+    // Send admin into the user UI starting from Data Umum
+    navigate("/data-umum");
+  };
+
   const getProgressPercent = (progress: Record<string, boolean>) => {
     if (!progress || typeof progress !== "object") return 0;
     const completed = FORM_STEPS.filter((s) => progress[s.key]).length;
@@ -491,10 +505,13 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => handleViewAsUser(s)} className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 h-7 w-7 p-0" title="Lihat sebagai user (live view)">
+                                    <ScanEye size={14} />
+                                  </Button>
                                   <Button variant="ghost" size="sm" onClick={() => setSelectedUser(s)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 w-7 p-0" title="Lihat detail">
                                     <Eye size={14} />
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0" title="Monitor layar">
+                                  <Button variant="ghost" size="sm" onClick={() => setMonitorUser(s)} className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-7 w-7 p-0" title="Monitor screenshot">
                                     <Camera size={14} />
                                   </Button>
                                   <Button variant="ghost" size="sm" onClick={() => handleResetUserProgress(s)} className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 h-7 w-7 p-0" title="Reset progress">
@@ -764,7 +781,10 @@ export default function AdminDashboard() {
                   <p>Mulai: {new Date(selectedUser.created_at).toLocaleString("id-ID")}</p>
                   <p>Terakhir aktif: {new Date(selectedUser.last_active).toLocaleString("id-ID")}</p>
                 </div>
-                <div className="flex gap-2 pt-2 border-t border-[hsl(152,30%,22%)]">
+                <div className="flex gap-2 pt-2 border-t border-[hsl(152,30%,22%)] flex-wrap">
+                  <Button size="sm" className="gap-1 text-xs bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { const u = selectedUser; setSelectedUser(null); handleViewAsUser(u); }}>
+                    <ScanEye size={12} /> Lihat sebagai User
+                  </Button>
                   <Button size="sm" variant="destructive" className="gap-1 text-xs" onClick={() => { setSelectedUser(null); handleResetUserProgress(selectedUser); }}>
                     <Eraser size={12} /> Reset Progress
                   </Button>

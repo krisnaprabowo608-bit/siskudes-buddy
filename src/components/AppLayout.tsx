@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import TopMenuBar from "./TopMenuBar";
 import ScreenShareConsent from "./ScreenShareConsent";
+import ImpersonationBanner from "./ImpersonationBanner";
 import bgLandscape from "@/assets/bg-landscape.jpg";
 
 export default function AppLayout() {
@@ -22,6 +23,9 @@ export default function AppLayout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {/* Admin impersonation banner (only renders when active) */}
+      <ImpersonationBanner />
+
       {/* Top Menu Bar */}
       <TopMenuBar />
 
