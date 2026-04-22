@@ -781,7 +781,10 @@ export default function AdminDashboard() {
                   <p>Mulai: {new Date(selectedUser.created_at).toLocaleString("id-ID")}</p>
                   <p>Terakhir aktif: {new Date(selectedUser.last_active).toLocaleString("id-ID")}</p>
                 </div>
-                <div className="flex gap-2 pt-2 border-t border-[hsl(152,30%,22%)]">
+                <div className="flex gap-2 pt-2 border-t border-[hsl(152,30%,22%)] flex-wrap">
+                  <Button size="sm" className="gap-1 text-xs bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { const u = selectedUser; setSelectedUser(null); handleViewAsUser(u); }}>
+                    <ScanEye size={12} /> Lihat sebagai User
+                  </Button>
                   <Button size="sm" variant="destructive" className="gap-1 text-xs" onClick={() => { setSelectedUser(null); handleResetUserProgress(selectedUser); }}>
                     <Eraser size={12} /> Reset Progress
                   </Button>
