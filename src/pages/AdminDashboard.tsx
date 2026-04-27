@@ -536,6 +536,9 @@ export default function AdminDashboard() {
             <TabsTrigger value="pdfs" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
               <Download size={14} className="mr-1" /> PDF ({pdfFiles.length})
             </TabsTrigger>
+            <TabsTrigger value="kelompok" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
+              <Settings2 size={14} className="mr-1" /> Kelompok
+            </TabsTrigger>
           </TabsList>
 
           {/* Users Tab */}
