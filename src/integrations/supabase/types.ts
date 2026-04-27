@@ -188,6 +188,36 @@ export type Database = {
           },
         ]
       }
+      village_group_limits: {
+        Row: {
+          created_at: string
+          id: string
+          max_members: number
+          min_members: number
+          updated_at: string
+          village_id: string
+          village_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_members?: number
+          min_members?: number
+          updated_at?: string
+          village_id: string
+          village_name?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_members?: number
+          min_members?: number
+          updated_at?: string
+          village_id?: string
+          village_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
