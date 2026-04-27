@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import TopMenuBar from "./TopMenuBar";
 import ScreenShareConsent from "./ScreenShareConsent";
 import ImpersonationBanner from "./ImpersonationBanner";
+import { useGroupRealtimeSync } from "@/hooks/use-group-realtime-sync";
 import bgLandscape from "@/assets/bg-landscape.jpg";
 
 export default function AppLayout() {
+  useGroupRealtimeSync();
   const location = useLocation();
   const [transitioning, setTransitioning] = useState(false);
   const [displayLocation, setDisplayLocation] = useState(location);

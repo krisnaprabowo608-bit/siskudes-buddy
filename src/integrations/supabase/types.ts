@@ -53,18 +53,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          name: string
           village_id: string
           village_name: string
         }
         Insert: {
           created_at?: string
           id?: string
+          name?: string
           village_id: string
           village_name?: string
         }
         Update: {
           created_at?: string
           id?: string
+          name?: string
           village_id?: string
           village_name?: string
         }
