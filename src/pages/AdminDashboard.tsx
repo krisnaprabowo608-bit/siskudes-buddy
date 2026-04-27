@@ -106,16 +106,28 @@ export default function AdminDashboard() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [all, active, settings, submitted] = await Promise.all([
+    const [all, active, settings, submitted, limits] = await Promise.all([
       getAllSessions(),
       getActiveSessions(5),
       getSiteSettings(),
       getSubmittedReports(),
+      getAllVillageGroupLimits(),
     ]);
     setSessions(all as SessionRow[]);
     setActiveSessions(active as SessionRow[]);
     setReports(submitted as ReportRow[]);
     if (settings) setSiteSettings({ is_locked: settings.is_locked, max_users: settings.max_users });
+
+    // Build limits map keyed by village_id with defaults for missing villages
+    const map: Record<string, { min: number; max: number }> = {};
+    villageProfiles.forEach((v) => {
+      const found = limits.find((l) => l.village_id === v.id);
+      map[v.id] = {
+        min: found?.min_members ?? 1,
+        max: found?.max_members ?? 10,
+      };
+    });
+    setVillageLimits(map);
 
     try {
       const { data: folders } = await supabase.storage.from("report-pdfs").list("", { limit: 100 });
