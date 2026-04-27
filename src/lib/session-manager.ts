@@ -1,7 +1,54 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "siskeudes_session_id";
-const MAX_GROUP_MEMBERS = 10;
+const DEFAULT_MAX_GROUP_MEMBERS = 10;
+const DEFAULT_MIN_GROUP_MEMBERS = 1;
+
+// ============ VILLAGE GROUP LIMITS (admin-controlled, realtime-synced) ============
+
+export interface VillageGroupLimit {
+  village_id: string;
+  village_name: string;
+  min_members: number;
+  max_members: number;
+}
+
+export async function getVillageGroupLimit(villageId: string): Promise<VillageGroupLimit> {
+  const { data } = await supabase
+    .from("village_group_limits")
+    .select("village_id, village_name, min_members, max_members")
+    .eq("village_id", villageId)
+    .maybeSingle();
+  if (data) return data as VillageGroupLimit;
+  return {
+    village_id: villageId,
+    village_name: "",
+    min_members: DEFAULT_MIN_GROUP_MEMBERS,
+    max_members: DEFAULT_MAX_GROUP_MEMBERS,
+  };
+}
+
+export async function getAllVillageGroupLimits(): Promise<VillageGroupLimit[]> {
+  const { data } = await supabase
+    .from("village_group_limits")
+    .select("village_id, village_name, min_members, max_members");
+  return (data as VillageGroupLimit[]) || [];
+}
+
+export async function upsertVillageGroupLimit(input: VillageGroupLimit) {
+  const { error } = await supabase
+    .from("village_group_limits")
+    .upsert(
+      {
+        village_id: input.village_id,
+        village_name: input.village_name,
+        min_members: Math.max(1, Math.floor(input.min_members)),
+        max_members: Math.max(1, Math.floor(input.max_members)),
+      } as never,
+      { onConflict: "village_id" },
+    );
+  if (error) throw new Error(error.message);
+}
 
 export function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY);
@@ -201,9 +248,14 @@ export async function getAllGroupsWithCounts(): Promise<GroupWithMemberCount[]> 
   const counts = new Map<string, number>();
   (members || []).forEach((m) => counts.set(m.group_id, (counts.get(m.group_id) || 0) + 1));
 
+  // Pull all per-village limits in one shot
+  const limits = await getAllVillageGroupLimits();
+  const limitMap = new Map(limits.map((l) => [l.village_id, l.max_members]));
+
   return (groups as GroupRow[]).map((g) => {
     const c = counts.get(g.id) || 0;
-    return { ...g, member_count: c, is_full: c >= MAX_GROUP_MEMBERS };
+    const max = limitMap.get(g.village_id) ?? DEFAULT_MAX_GROUP_MEMBERS;
+    return { ...g, member_count: c, is_full: c >= max };
   });
 }
 
@@ -249,19 +301,23 @@ export async function joinGroupSmart(
   // Leave any existing group first (clean switch)
   await leaveCurrentGroup();
 
+  // Resolve max for this village (admin-controlled)
+  const limit = await getVillageGroupLimit(villageId);
+  const maxMembers = limit.max_members || DEFAULT_MAX_GROUP_MEMBERS;
+
   let groupId: string | null = null;
 
   if (preferredGroupId) {
     const members = await getGroupMembers(preferredGroupId);
-    if (members.length >= MAX_GROUP_MEMBERS) {
-      throw new Error("Kelompok ini sudah penuh (10 anggota).");
+    if (members.length >= maxMembers) {
+      throw new Error(`Kelompok ini sudah penuh (${maxMembers} anggota).`);
     }
     groupId = preferredGroupId;
   } else {
     const groups = await getGroupForVillage(villageId);
     for (const g of groups) {
       const members = await getGroupMembers(g.id);
-      if (members.length < MAX_GROUP_MEMBERS) {
+      if (members.length < maxMembers) {
         groupId = g.id;
         break;
       }

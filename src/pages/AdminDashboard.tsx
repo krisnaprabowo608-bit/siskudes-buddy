@@ -15,15 +15,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
-  AlertTriangle, UserX, Database, Eraser, ScanEye,
+  AlertTriangle, UserX, Database, Eraser, ScanEye, Settings2, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAllSessions, getActiveSessions, getSiteSettings, updateSiteSettings, deleteSession, getSubmittedReports,
+  getAllVillageGroupLimits, upsertVillageGroupLimit, type VillageGroupLimit,
 } from "@/lib/session-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { getScreenshotUrl } from "@/lib/screenshot-capture";
 import { startImpersonation } from "@/lib/admin-impersonation";
+import { villageProfiles } from "@/data/village-profiles";
 
 const ADMIN_PASSWORD = "987654321";
 
@@ -94,7 +96,7 @@ export default function AdminDashboard() {
   const [monitorUser, setMonitorUser] = useState<SessionRow | null>(null);
   const [screenshotKey, setScreenshotKey] = useState(0);
   const [loading, setLoading] = useState(false);
-
+  const [villageLimits, setVillageLimits] = useState<Record<string, { min: number; max: number }>>({});
   // Confirm dialogs
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
@@ -104,16 +106,28 @@ export default function AdminDashboard() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [all, active, settings, submitted] = await Promise.all([
+    const [all, active, settings, submitted, limits] = await Promise.all([
       getAllSessions(),
       getActiveSessions(5),
       getSiteSettings(),
       getSubmittedReports(),
+      getAllVillageGroupLimits(),
     ]);
     setSessions(all as SessionRow[]);
     setActiveSessions(active as SessionRow[]);
     setReports(submitted as ReportRow[]);
     if (settings) setSiteSettings({ is_locked: settings.is_locked, max_users: settings.max_users });
+
+    // Build limits map keyed by village_id with defaults for missing villages
+    const map: Record<string, { min: number; max: number }> = {};
+    villageProfiles.forEach((v) => {
+      const found = limits.find((l) => l.village_id === v.id);
+      map[v.id] = {
+        min: found?.min_members ?? 1,
+        max: found?.max_members ?? 10,
+      };
+    });
+    setVillageLimits(map);
 
     try {
       const { data: folders } = await supabase.storage.from("report-pdfs").list("", { limit: 100 });
@@ -337,6 +351,34 @@ export default function AdminDashboard() {
     toast.success(`Batas akses diatur: ${num === 0 ? "Tidak terbatas" : num + " user"}`);
   };
 
+  const handleVillageLimitChange = (villageId: string, key: "min" | "max", val: string) => {
+    const num = Math.max(1, parseInt(val) || 1);
+    setVillageLimits((prev) => ({
+      ...prev,
+      [villageId]: { ...prev[villageId], [key]: num },
+    }));
+  };
+
+  const handleSaveVillageLimit = async (villageId: string, villageName: string) => {
+    const cur = villageLimits[villageId];
+    if (!cur) return;
+    if (cur.min > cur.max) {
+      toast.error("Min anggota tidak boleh lebih besar dari Max anggota");
+      return;
+    }
+    try {
+      await upsertVillageGroupLimit({
+        village_id: villageId,
+        village_name: villageName,
+        min_members: cur.min,
+        max_members: cur.max,
+      });
+      toast.success(`Batas kelompok "${villageName}" tersimpan & disinkronkan ke semua user.`);
+    } catch (e) {
+      toast.error(`Gagal menyimpan: ${(e as Error).message}`);
+    }
+  };
+
   const handleLogout = () => {
     sessionStorage.removeItem("siskeudes_admin");
     navigate("/");
@@ -493,6 +535,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="pdfs" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
               <Download size={14} className="mr-1" /> PDF ({pdfFiles.length})
+            </TabsTrigger>
+            <TabsTrigger value="kelompok" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-white/60">
+              <Settings2 size={14} className="mr-1" /> Kelompok
             </TabsTrigger>
           </TabsList>
 
@@ -790,6 +835,70 @@ export default function AdminDashboard() {
                     })()}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          {/* Kelompok Tab — per-village min/max members */}
+          <TabsContent value="kelompok">
+            <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <Settings2 size={18} /> Kontrol Jumlah Anggota Kelompok per Desa
+                </CardTitle>
+                <p className="text-[11px] text-[hsl(0,0%,55%)] mt-1">
+                  Atur batas minimum dan maksimum anggota tiap kelompok untuk masing-masing desa.
+                  Perubahan tersinkron real-time ke semua user.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[hsl(152,30%,22%)]">
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase">Desa</th>
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-32">Min Anggota</th>
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-32">Max Anggota</th>
+                        <th className="text-center py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-28">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {villageProfiles.map((v) => {
+                        const cur = villageLimits[v.id] || { min: 1, max: 10 };
+                        return (
+                          <tr key={v.id} className="border-b border-[hsl(152,30%,20%)] hover:bg-[hsl(152,20%,18%)]">
+                            <td className="py-2.5 px-3 text-white">
+                              <div className="font-medium">Desa {v.profile.namaDesa}</div>
+                              <div className="text-[10px] text-[hsl(0,0%,50%)]">{v.profile.kecamatan}</div>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Input type="number" min={1} value={cur.min}
+                                onChange={(e) => handleVillageLimitChange(v.id, "min", e.target.value)}
+                                className="h-8 w-24 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm" />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Input type="number" min={1} value={cur.max}
+                                onChange={(e) => handleVillageLimitChange(v.id, "max", e.target.value)}
+                                className="h-8 w-24 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm" />
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <Button size="sm" onClick={() => handleSaveVillageLimit(v.id, v.profile.namaDesa)}
+                                className="h-8 text-xs gap-1 bg-primary hover:bg-primary/80 text-primary-foreground">
+                                <Save size={12} /> Simpan
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 text-[11px] text-[hsl(0,0%,55%)] flex items-start gap-2">
+                  <AlertTriangle size={13} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <span>
+                    User hanya bisa join kelompok jika belum mencapai <b>Max</b>. Min digunakan sebagai info
+                    untuk memastikan kelompok memiliki cukup anggota sebelum mengirim laporan.
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
