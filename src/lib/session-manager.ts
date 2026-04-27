@@ -1,7 +1,54 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "siskeudes_session_id";
-const MAX_GROUP_MEMBERS = 10;
+const DEFAULT_MAX_GROUP_MEMBERS = 10;
+const DEFAULT_MIN_GROUP_MEMBERS = 1;
+
+// ============ VILLAGE GROUP LIMITS (admin-controlled, realtime-synced) ============
+
+export interface VillageGroupLimit {
+  village_id: string;
+  village_name: string;
+  min_members: number;
+  max_members: number;
+}
+
+export async function getVillageGroupLimit(villageId: string): Promise<VillageGroupLimit> {
+  const { data } = await supabase
+    .from("village_group_limits")
+    .select("village_id, village_name, min_members, max_members")
+    .eq("village_id", villageId)
+    .maybeSingle();
+  if (data) return data as VillageGroupLimit;
+  return {
+    village_id: villageId,
+    village_name: "",
+    min_members: DEFAULT_MIN_GROUP_MEMBERS,
+    max_members: DEFAULT_MAX_GROUP_MEMBERS,
+  };
+}
+
+export async function getAllVillageGroupLimits(): Promise<VillageGroupLimit[]> {
+  const { data } = await supabase
+    .from("village_group_limits")
+    .select("village_id, village_name, min_members, max_members");
+  return (data as VillageGroupLimit[]) || [];
+}
+
+export async function upsertVillageGroupLimit(input: VillageGroupLimit) {
+  const { error } = await supabase
+    .from("village_group_limits")
+    .upsert(
+      {
+        village_id: input.village_id,
+        village_name: input.village_name,
+        min_members: Math.max(1, Math.floor(input.min_members)),
+        max_members: Math.max(1, Math.floor(input.max_members)),
+      } as never,
+      { onConflict: "village_id" },
+    );
+  if (error) throw new Error(error.message);
+}
 
 export function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY);
