@@ -378,6 +378,8 @@ export default function AdminDashboard() {
       toast.error(`Gagal menyimpan: ${(e as Error).message}`);
     }
   };
+
+  const handleLogout = () => {
     sessionStorage.removeItem("siskeudes_admin");
     navigate("/");
   };
