@@ -256,13 +256,18 @@ export function loadState(): AppState {
   }
 }
 
-export function saveState(state: AppState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
+// Debounced backend push so a burst of saveState() calls (typing, multiple
+// rows added in quick succession) collapses into ONE network round-trip.
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingState: AppState | null = null;
 
+function flushPush() {
+  pushTimer = null;
+  const state = pendingState;
+  pendingState = null;
+  if (!state) return;
   try {
     if (localStorage.getItem('siskeudes_admin_impersonate')) return;
-
     const mutasiKas = (() => {
       try {
         const raw = localStorage.getItem('siskeudes_mutasi_kas');
@@ -271,12 +276,29 @@ export function saveState(state: AppState) {
         return [];
       }
     })();
-
-    const payload = {
-      ...state,
-      mutasiKas,
-    } as unknown as Record<string, unknown>;
-
+    const payload = { ...state, mutasiKas } as unknown as Record<string, unknown>;
+    // Mark our own write so realtime subscriber can detect cross-edits
+    localStorage.setItem('siskeudes_last_local_write_at', String(Date.now()));
     void upsertSession({ form_data: payload });
   } catch { /* ignore */ }
+}
+
+export function saveState(state: AppState) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
+
+  // Coalesce backend pushes (debounce 500ms)
+  pendingState = state;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(flushPush, 500);
+}
+
+// Force-flush hook for places that REALLY need the server to be in sync now
+// (e.g., before navigating away or submitting a report).
+export function flushSaveStateNow() {
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+  }
+  flushPush();
 }
