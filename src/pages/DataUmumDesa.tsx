@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { defaultDesaProfile, type DesaProfile } from "@/data/siskeudes-data";
 import { villageProfiles } from "@/data/village-profiles";
 import { Input } from "@/components/ui/input";
@@ -6,9 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, MapPin, Users, User, Crown, UserPlus } from "lucide-react";
-import { upsertSession, createOrJoinGroup, getGroupMembers, getGroupForVillage } from "@/lib/session-manager";
+import { Save, MapPin, Users, User, Crown, UserPlus, LogOut, Eye, Plus } from "lucide-react";
+import {
+  upsertSession,
+  joinGroupSmart,
+  leaveCurrentGroup,
+  getGroupMembers,
+  getGroupForVillage,
+  getAllGroupsWithCounts,
+  previewGroupFormData,
+  getSessionId,
+  type GroupRow,
+  type GroupWithMemberCount,
+} from "@/lib/session-manager";
 import { useNavigate } from "react-router-dom";
 import FormPageHeader from "@/components/FormPageHeader";
 
@@ -22,12 +34,18 @@ interface GroupMember {
 
 export default function DataUmumDesa() {
   const navigate = useNavigate();
+  const sessionId = getSessionId();
   const [selectedVillage, setSelectedVillage] = useState<string>("");
   const [userName, setUserName] = useState("Mahasiswa Demo");
   const [workMode, setWorkMode] = useState<"individual" | "group">("individual");
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [villageGroups, setVillageGroups] = useState<GroupWithMemberCount[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [allGroups, setAllGroups] = useState<GroupWithMemberCount[]>([]);
+  const [previewGroup, setPreviewGroup] = useState<GroupWithMemberCount | null>(null);
+  const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null);
   const [profile, setProfile] = useState<DesaProfile>(() => {
     try {
       const saved = localStorage.getItem('siskeudes_desa_profile');
@@ -40,7 +58,10 @@ export default function DataUmumDesa() {
     const savedName = localStorage.getItem('siskeudes_user_name');
     const savedMode = localStorage.getItem('siskeudes_work_mode') as "individual" | "group" | null;
     const savedGroupId = localStorage.getItem('siskeudes_group_id');
-    if (savedVillage) setSelectedVillage(savedVillage);
+    if (savedVillage) {
+      setSelectedVillage(savedVillage);
+      void refreshVillageGroups(savedVillage);
+    }
     if (savedName) setUserName(savedName);
     if (savedMode) setWorkMode(savedMode);
     if (savedGroupId) {
@@ -54,99 +75,141 @@ export default function DataUmumDesa() {
     setGroupMembers(members as GroupMember[]);
   };
 
+  const refreshVillageGroups = useCallback(async (villageId: string) => {
+    const groups = await getGroupForVillage(villageId);
+    if (groups.length === 0) { setVillageGroups([]); return; }
+    const all = await getAllGroupsWithCounts();
+    setVillageGroups(all.filter((g) => g.village_id === villageId));
+  }, []);
+
   const handleVillageSelect = async (villageId: string) => {
     const previousVillage = localStorage.getItem('siskeudes_selected_village');
-    
-    // If switching to a different village, reset all form data
+
     if (previousVillage && previousVillage !== villageId) {
-      // Reset app state (all form inputs)
       const { saveState } = await import("@/data/app-state");
       saveState({
         pendapatan: [], belanja: [], pembiayaan: [], penerimaan: [],
         silpa: [], spp: [], pencairan: [], penyetoranPajak: [],
         saldoAwal: [], spjPanjar: [], jurnalUmum: [], kegiatanAnggaran: [],
       });
-      // Reset mutasi kas
       localStorage.removeItem('siskeudes_mutasi_kas');
-      // Reset group
-      localStorage.removeItem('siskeudes_group_id');
+      // leave current group when switching village
+      await leaveCurrentGroup();
       setGroupId(null);
       setGroupMembers([]);
       toast.info("Data form direset karena pindah desa.");
     }
-    
+
     setSelectedVillage(villageId);
     const village = villageProfiles.find((v) => v.id === villageId);
-    if (village) {
-      setProfile(village.profile);
-    }
-    // Check if there's an existing group for this village
-    const groups = await getGroupForVillage(villageId);
-    if (groups.length > 0) {
-      const members = await getGroupMembers(groups[0].id);
-      setGroupMembers(members as GroupMember[]);
-    } else {
-      setGroupMembers([]);
+    if (village) setProfile(village.profile);
+    await refreshVillageGroups(villageId);
+  };
+
+  const handleJoinSpecific = async (preferredGroupId?: string) => {
+    if (!userName.trim()) { toast.error("Nama pengisi harus diisi!"); return; }
+    if (!selectedVillage) { toast.error("Pilih desa terlebih dahulu!"); return; }
+
+    localStorage.setItem('siskeudes_desa_profile', JSON.stringify(profile));
+    localStorage.setItem('siskeudes_selected_village', selectedVillage);
+    localStorage.setItem('siskeudes_user_name', userName);
+    localStorage.setItem('siskeudes_work_mode', 'group');
+    setWorkMode('group');
+
+    setGroupLoading(true);
+    try {
+      const gId = await joinGroupSmart(selectedVillage, profile.namaDesa, userName, preferredGroupId);
+      setGroupId(gId);
+      await loadGroupMembers(gId);
+      await refreshVillageGroups(selectedVillage);
+
+      await upsertSession({
+        user_name: userName,
+        village_id: selectedVillage,
+        village_name: profile.namaDesa,
+        form_progress: { data_umum: true },
+        work_mode: "group",
+        group_id: gId,
+      });
+
+      toast.success("Berhasil bergabung ke kelompok!");
+      // notify other tabs / hooks
+      window.dispatchEvent(new StorageEvent('storage', { key: 'siskeudes_group_id' }));
+      // soft reload so the synced form_data populates every page
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal bergabung kelompok";
+      toast.error(msg);
+    } finally {
+      setGroupLoading(false);
     }
   };
 
-  const update = (key: keyof DesaProfile, value: string) => {
-    setProfile((prev) => ({ ...prev, [key]: value }));
+  const handleLeaveGroup = async () => {
+    setGroupLoading(true);
+    try {
+      await leaveCurrentGroup();
+      setGroupId(null);
+      setGroupMembers([]);
+      if (selectedVillage) await refreshVillageGroups(selectedVillage);
+      toast.success("Anda telah keluar dari kelompok. Anda bisa join kelompok lain sekarang.");
+      window.dispatchEvent(new StorageEvent('storage', { key: 'siskeudes_group_id' }));
+    } finally {
+      setGroupLoading(false);
+    }
   };
 
   const handleSave = async () => {
-    if (!userName.trim()) {
-      toast.error("Nama pengisi harus diisi!");
-      return;
-    }
-    if (!selectedVillage) {
-      toast.error("Pilih desa terlebih dahulu!");
-      return;
-    }
-    
+    if (!userName.trim()) { toast.error("Nama pengisi harus diisi!"); return; }
+    if (!selectedVillage) { toast.error("Pilih desa terlebih dahulu!"); return; }
+
     localStorage.setItem('siskeudes_desa_profile', JSON.stringify(profile));
     localStorage.setItem('siskeudes_selected_village', selectedVillage);
     localStorage.setItem('siskeudes_user_name', userName);
     localStorage.setItem('siskeudes_work_mode', workMode);
 
     if (workMode === "group") {
-      setGroupLoading(true);
-      try {
-        const gId = await createOrJoinGroup(selectedVillage, profile.namaDesa, userName);
-        setGroupId(gId);
-        localStorage.setItem('siskeudes_group_id', gId);
-        await loadGroupMembers(gId);
-        
-        await upsertSession({
-          user_name: userName,
-          village_id: selectedVillage,
-          village_name: profile.namaDesa,
-          form_progress: { data_umum: true },
-          work_mode: "group",
-          group_id: gId,
-        });
-        
-        toast.success("Berhasil bergabung ke kelompok!");
-      } catch (err: any) {
-        toast.error(err.message || "Gagal bergabung kelompok");
-      } finally {
-        setGroupLoading(false);
-      }
+      // auto-join (first non-full or new) for the selected village
+      await handleJoinSpecific(undefined);
     } else {
-      localStorage.removeItem('siskeudes_group_id');
+      await leaveCurrentGroup();
       setGroupId(null);
       setGroupMembers([]);
-      
+
       await upsertSession({
         user_name: userName,
         village_id: selectedVillage,
         village_name: profile.namaDesa,
         form_progress: { data_umum: true },
         work_mode: "individual",
+        group_id: null,
       });
-      
+
       toast.success("Data Umum Desa berhasil disimpan");
     }
+  };
+
+  const openBrowse = async () => {
+    const all = await getAllGroupsWithCounts();
+    setAllGroups(all);
+    setBrowseOpen(true);
+  };
+
+  const openPreview = async (g: GroupWithMemberCount) => {
+    setPreviewGroup(g);
+    const data = await previewGroupFormData(g.id);
+    setPreviewData(data);
+  };
+
+  const summarize = (data: Record<string, unknown> | null) => {
+    if (!data) return null;
+    const counts: Array<[string, number]> = [];
+    const keys = ["pendapatan","belanja","pembiayaan","penerimaan","spp","pencairan","penyetoranPajak","jurnalUmum","kegiatanAnggaran","mutasiKas"];
+    for (const k of keys) {
+      const v = (data as Record<string, unknown>)[k];
+      if (Array.isArray(v)) counts.push([k, v.length]);
+    }
+    return counts;
   };
 
   const fields: { label: string; key: keyof DesaProfile; span?: number }[] = [
@@ -166,9 +229,16 @@ export default function DataUmumDesa() {
     { label: "Kode Pos", key: "kodePos" },
   ];
 
+  const update = (key: keyof DesaProfile, value: string) => {
+    setProfile((prev) => ({ ...prev, [key]: value }));
+  };
+
   return (
     <div>
       <FormPageHeader title="Data Umum Desa" subtitle="Identitas desa, perangkat, dan tahun anggaran">
+        <Button variant="outline" size="sm" onClick={openBrowse} className="gap-2">
+          <Eye size={14} /> Lihat Kelompok Lain
+        </Button>
         <Button onClick={handleSave} className="gap-2" disabled={groupLoading}>
           <Save size={16} /> {groupLoading ? "Memproses..." : "Simpan"}
         </Button>
@@ -241,16 +311,67 @@ export default function DataUmumDesa() {
                   <Users size={20} className={workMode === "group" ? "text-primary" : "text-muted-foreground"} />
                   <span className="font-semibold text-sm">Kelompok</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Mengerjakan bersama (max 10 anggota per desa)</p>
+                <p className="text-xs text-muted-foreground">Bersama (max 10/kelompok). Progress sinkron real-time.</p>
               </button>
             </div>
 
-            {/* Group Info */}
+            {/* Group Selection: list Kelompok A/B/C for this village */}
+            {workMode === "group" && selectedVillage && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Users size={14} /> Kelompok di Desa {profile.namaDesa}
+                  </h4>
+                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => handleJoinSpecific(undefined)} disabled={groupLoading}>
+                    <Plus size={12} /> Buat / Auto-Join
+                  </Button>
+                </div>
+
+                {villageGroups.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Belum ada kelompok. Klik "Buat / Auto-Join" untuk membuat Kelompok A.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {villageGroups.map((g) => {
+                      const isMine = groupId === g.id;
+                      return (
+                        <div key={g.id} className={`p-3 rounded-lg border-2 transition-colors ${isMine ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">{g.name || "Kelompok"}</span>
+                              {isMine && <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-primary border-primary">Anda di sini</Badge>}
+                            </div>
+                            <Badge variant={g.is_full ? "destructive" : "secondary"} className="text-[10px]">
+                              {g.member_count}/10
+                            </Badge>
+                          </div>
+                          <div className="flex gap-1.5">
+                            {!isMine ? (
+                              <Button size="sm" variant="default" className="flex-1 h-7 text-xs" disabled={g.is_full || groupLoading} onClick={() => handleJoinSpecific(g.id)}>
+                                <UserPlus size={12} className="mr-1" /> {g.is_full ? "Penuh" : "Join"}
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="destructive" className="flex-1 h-7 text-xs" onClick={handleLeaveGroup} disabled={groupLoading}>
+                                <LogOut size={12} className="mr-1" /> Keluar
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openPreview(g)}>
+                              <Eye size={12} />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Current group members */}
             {workMode === "group" && groupId && groupMembers.length > 0 && (
               <div className="mt-4 p-3 bg-card border border-border rounded-lg">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Users size={14} /> Anggota Kelompok ({groupMembers.length}/10)
+                    <Users size={14} /> Anggota Kelompok Aktif ({groupMembers.length}/10)
                   </h4>
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => navigate("/group-room")}>
                     <UserPlus size={12} className="mr-1" /> Lihat Room
@@ -258,7 +379,7 @@ export default function DataUmumDesa() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {groupMembers.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2 text-xs p-2 rounded bg-muted/50">
+                    <div key={m.id} className={`flex items-center gap-2 text-xs p-2 rounded ${m.session_id === sessionId ? "bg-primary/10 border border-primary/30" : "bg-muted/50"}`}>
                       {m.is_leader ? (
                         <Crown size={14} className="text-yellow-500 shrink-0" />
                       ) : (
@@ -266,20 +387,15 @@ export default function DataUmumDesa() {
                       )}
                       <span className={m.is_leader ? "font-semibold" : ""}>{m.user_name || "—"}</span>
                       {m.is_leader && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-yellow-100 text-yellow-700">
-                          Ketua
-                        </Badge>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-yellow-100 text-yellow-700">Ketua</Badge>
+                      )}
+                      {m.session_id === sessionId && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-primary border-primary">Anda</Badge>
                       )}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-
-            {workMode === "group" && !groupId && selectedVillage && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                💡 Klik "Simpan" untuk membuat/bergabung ke kelompok desa ini. Ketua dipilih secara acak.
-              </p>
             )}
           </div>
 
@@ -298,6 +414,57 @@ export default function DataUmumDesa() {
           </div>
         </div>
       </div>
+
+      {/* Browse all groups across villages */}
+      <Dialog open={browseOpen} onOpenChange={setBrowseOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Semua Kelompok (Lintas Desa)</DialogTitle>
+            <DialogDescription>
+              Lihat kelompok di desa lain. Anda bisa preview pekerjaan mereka. Untuk join, simpan dulu lalu keluar dari kelompok aktif.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[420px] overflow-y-auto space-y-2">
+            {allGroups.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Belum ada kelompok terdaftar.</p>}
+            {allGroups.map((g) => (
+              <div key={g.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div>
+                  <div className="text-sm font-semibold">{g.name || "Kelompok"} — Desa {g.village_name}</div>
+                  <div className="text-xs text-muted-foreground">{g.member_count}/10 anggota</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openPreview(g)}><Eye size={14} className="mr-1" /> Preview</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview group's work */}
+      <Dialog open={!!previewGroup} onOpenChange={(o) => { if (!o) { setPreviewGroup(null); setPreviewData(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pekerjaan {previewGroup?.name} — Desa {previewGroup?.village_name}</DialogTitle>
+            <DialogDescription>Ringkasan jumlah baris yang sudah diisi kelompok ini (read-only).</DialogDescription>
+          </DialogHeader>
+          {!previewData ? (
+            <p className="text-sm text-muted-foreground py-4">Belum ada data pengisian.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {(summarize(previewData) || []).map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between text-sm py-1.5 px-3 rounded bg-muted/50">
+                  <span className="capitalize">{k}</span>
+                  <Badge variant="secondary">{v} baris</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPreviewGroup(null); setPreviewData(null); }}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
