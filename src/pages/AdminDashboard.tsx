@@ -351,7 +351,33 @@ export default function AdminDashboard() {
     toast.success(`Batas akses diatur: ${num === 0 ? "Tidak terbatas" : num + " user"}`);
   };
 
-  const handleLogout = () => {
+  const handleVillageLimitChange = (villageId: string, key: "min" | "max", val: string) => {
+    const num = Math.max(1, parseInt(val) || 1);
+    setVillageLimits((prev) => ({
+      ...prev,
+      [villageId]: { ...prev[villageId], [key]: num },
+    }));
+  };
+
+  const handleSaveVillageLimit = async (villageId: string, villageName: string) => {
+    const cur = villageLimits[villageId];
+    if (!cur) return;
+    if (cur.min > cur.max) {
+      toast.error("Min anggota tidak boleh lebih besar dari Max anggota");
+      return;
+    }
+    try {
+      await upsertVillageGroupLimit({
+        village_id: villageId,
+        village_name: villageName,
+        min_members: cur.min,
+        max_members: cur.max,
+      });
+      toast.success(`Batas kelompok "${villageName}" tersimpan & disinkronkan ke semua user.`);
+    } catch (e) {
+      toast.error(`Gagal menyimpan: ${(e as Error).message}`);
+    }
+  };
     sessionStorage.removeItem("siskeudes_admin");
     navigate("/");
   };
