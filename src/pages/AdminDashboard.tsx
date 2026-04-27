@@ -15,15 +15,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Activity, Lock, Unlock, Eye, Trash2, RefreshCw, Shield, LogOut, Monitor, FileText, Camera, Download,
-  AlertTriangle, UserX, Database, Eraser, ScanEye,
+  AlertTriangle, UserX, Database, Eraser, ScanEye, Settings2, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAllSessions, getActiveSessions, getSiteSettings, updateSiteSettings, deleteSession, getSubmittedReports,
+  getAllVillageGroupLimits, upsertVillageGroupLimit, type VillageGroupLimit,
 } from "@/lib/session-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { getScreenshotUrl } from "@/lib/screenshot-capture";
 import { startImpersonation } from "@/lib/admin-impersonation";
+import { villageProfiles } from "@/data/village-profiles";
 
 const ADMIN_PASSWORD = "987654321";
 
