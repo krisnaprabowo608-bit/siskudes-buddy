@@ -248,9 +248,14 @@ export async function getAllGroupsWithCounts(): Promise<GroupWithMemberCount[]> 
   const counts = new Map<string, number>();
   (members || []).forEach((m) => counts.set(m.group_id, (counts.get(m.group_id) || 0) + 1));
 
+  // Pull all per-village limits in one shot
+  const limits = await getAllVillageGroupLimits();
+  const limitMap = new Map(limits.map((l) => [l.village_id, l.max_members]));
+
   return (groups as GroupRow[]).map((g) => {
     const c = counts.get(g.id) || 0;
-    return { ...g, member_count: c, is_full: c >= MAX_GROUP_MEMBERS };
+    const max = limitMap.get(g.village_id) ?? DEFAULT_MAX_GROUP_MEMBERS;
+    return { ...g, member_count: c, is_full: c >= max };
   });
 }
 
