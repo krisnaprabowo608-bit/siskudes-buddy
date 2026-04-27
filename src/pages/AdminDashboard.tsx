@@ -96,7 +96,7 @@ export default function AdminDashboard() {
   const [monitorUser, setMonitorUser] = useState<SessionRow | null>(null);
   const [screenshotKey, setScreenshotKey] = useState(0);
   const [loading, setLoading] = useState(false);
-
+  const [villageLimits, setVillageLimits] = useState<Record<string, { min: number; max: number }>>({});
   // Confirm dialogs
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
