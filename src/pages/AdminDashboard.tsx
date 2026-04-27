@@ -838,6 +838,70 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* Kelompok Tab — per-village min/max members */}
+          <TabsContent value="kelompok">
+            <Card className="bg-[hsl(152,30%,15%)]/80 border-[hsl(152,30%,22%)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <Settings2 size={18} /> Kontrol Jumlah Anggota Kelompok per Desa
+                </CardTitle>
+                <p className="text-[11px] text-[hsl(0,0%,55%)] mt-1">
+                  Atur batas minimum dan maksimum anggota tiap kelompok untuk masing-masing desa.
+                  Perubahan tersinkron real-time ke semua user.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[hsl(152,30%,22%)]">
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase">Desa</th>
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-32">Min Anggota</th>
+                        <th className="text-left py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-32">Max Anggota</th>
+                        <th className="text-center py-2 px-3 text-[10px] text-[hsl(0,0%,55%)] uppercase w-28">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {villageProfiles.map((v) => {
+                        const cur = villageLimits[v.id] || { min: 1, max: 10 };
+                        return (
+                          <tr key={v.id} className="border-b border-[hsl(152,30%,20%)] hover:bg-[hsl(152,20%,18%)]">
+                            <td className="py-2.5 px-3 text-white">
+                              <div className="font-medium">Desa {v.profile.namaDesa}</div>
+                              <div className="text-[10px] text-[hsl(0,0%,50%)]">{v.profile.kecamatan}</div>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Input type="number" min={1} value={cur.min}
+                                onChange={(e) => handleVillageLimitChange(v.id, "min", e.target.value)}
+                                className="h-8 w-24 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm" />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Input type="number" min={1} value={cur.max}
+                                onChange={(e) => handleVillageLimitChange(v.id, "max", e.target.value)}
+                                className="h-8 w-24 bg-[hsl(152,20%,20%)] border-[hsl(152,30%,25%)] text-white text-sm" />
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <Button size="sm" onClick={() => handleSaveVillageLimit(v.id, v.profile.namaDesa)}
+                                className="h-8 text-xs gap-1 bg-primary hover:bg-primary/80 text-primary-foreground">
+                                <Save size={12} /> Simpan
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 text-[11px] text-[hsl(0,0%,55%)] flex items-start gap-2">
+                  <AlertTriangle size={13} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <span>
+                    User hanya bisa join kelompok jika belum mencapai <b>Max</b>. Min digunakan sebagai info
+                    untuk memastikan kelompok memiliki cukup anggota sebelum mengirim laporan.
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* User Detail Modal */}
