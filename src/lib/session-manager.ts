@@ -301,19 +301,23 @@ export async function joinGroupSmart(
   // Leave any existing group first (clean switch)
   await leaveCurrentGroup();
 
+  // Resolve max for this village (admin-controlled)
+  const limit = await getVillageGroupLimit(villageId);
+  const maxMembers = limit.max_members || DEFAULT_MAX_GROUP_MEMBERS;
+
   let groupId: string | null = null;
 
   if (preferredGroupId) {
     const members = await getGroupMembers(preferredGroupId);
-    if (members.length >= MAX_GROUP_MEMBERS) {
-      throw new Error("Kelompok ini sudah penuh (10 anggota).");
+    if (members.length >= maxMembers) {
+      throw new Error(`Kelompok ini sudah penuh (${maxMembers} anggota).`);
     }
     groupId = preferredGroupId;
   } else {
     const groups = await getGroupForVillage(villageId);
     for (const g of groups) {
       const members = await getGroupMembers(g.id);
-      if (members.length < MAX_GROUP_MEMBERS) {
+      if (members.length < maxMembers) {
         groupId = g.id;
         break;
       }
