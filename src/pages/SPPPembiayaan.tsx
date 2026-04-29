@@ -244,12 +244,6 @@ export default function SPPPembiayaan() {
                   <Input type="number" className="h-7 text-[11px] text-right" disabled={rincianMode === "view"}
                     value={rincianMode !== "view" ? rincianForm.nilai || "" : selectedRincian?.nilai || ""} onChange={e => setRincianForm({ ...rincianForm, nilai: Number(e.target.value) })} /></div>
               </div>
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nama Rincian</Label>
-                  <Input className="h-7 text-[11px]" readOnly value={rincianMode !== "view" ? rincianForm.namaRekening : selectedRincian?.namaRekening || ""} /></div>
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nilai</Label>
-                  <Input type="number" className="h-7 text-[11px] text-right" disabled={rincianMode === "view"}
-                    value={rincianMode !== "view" ? rincianForm.nilai || "" : selectedRincian?.nilai || ""} onChange={e => setRincianForm({ ...rincianForm, nilai: Number(e.target.value) })} /></div>
-              </div>
               <ActionBar
                 onTambah={() => { if (selected.isFinal) { toast.error("SPP sudah Final"); return; } setRincianMode("add"); setSelectedRincian(null); setRincianForm({ kodeRekening: "", namaRekening: "", nilai: 0 }); }}
                 onUbah={() => { if (!selectedRincian) { toast.error("Pilih rincian"); return; } setRincianMode("edit"); setRincianForm({ kodeRekening: selectedRincian.kodeRekening, namaRekening: selectedRincian.namaRekening, nilai: selectedRincian.nilai }); }}
