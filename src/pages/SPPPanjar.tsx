@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
-import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi, type PotonganPajak } from "@/data/app-state";
-import { getBelanjaOptionsForKegiatan, getSisaBelanjaItem } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,12 +24,7 @@ export default function SPPPanjar() {
 
   const [rincianMode, setRincianMode] = useState<Mode>("view");
   const [selectedRincian, setSelectedRincian] = useState<SPPRincian | null>(null);
-  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0, belanjaId: "", noRef: "", kodeKegiatan: "", kodeBidang: "", namaKegiatan: "" });
-  const [rincianBidang, setRincianBidang] = useState("");
-  const [rincianKegiatan, setRincianKegiatan] = useState("");
-
-  const bidangs = bidangKegiatanData.filter(i => i.level === "bidang");
-  const kegiatans = bidangKegiatanData.filter(i => i.level === "kegiatan");
+  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0 });
 
   const [buktiMode, setBuktiMode] = useState<Mode>("view");
   const [selectedBukti, setSelectedBukti] = useState<BuktiTransaksi | null>(null);
