@@ -1,69 +1,93 @@
+# Restrukturisasi Penganggaran ↔ Penatausahaan (Final)
 
+Plan ini menggabungkan 3 revisi tertulis + transkrip audio klien menjadi satu implementasi terpadu.
 
-# Deploy ke Vercel — Panduan Lengkap
+## Prinsip Utama Klien
 
-## Yang akan dilakukan di kode
-
-### 1. Buat file `vercel.json`
-File konfigurasi SPA routing agar semua halaman berfungsi normal di Vercel (tidak 404 saat refresh).
-
-```json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
-
-Hanya ini satu-satunya perubahan kode yang diperlukan.
+> "Semua belanja & pendapatan harus mengacu ke baris yang sudah dianggarkan. LRA = bandingkan Anggaran vs Realisasi otomatis."
 
 ---
 
-## Langkah Deploy (Step-by-Step)
+## A. Hapus & Routing
+- **Hapus** `src/pages/PenganggaranAPBDesa.tsx`
+- **`src/App.tsx`**: hapus import & route `/penganggaran`
+- **`src/components/TopMenuBar.tsx`**: hapus item "Kegiatan APBDesa" di submenu Penganggaran (sisakan: Pendapatan, Belanja, Pembiayaan)
 
-### Langkah 1: Hubungkan ke GitHub
-1. Di Lovable, klik **Settings** (ikon gear) → **GitHub** → **Connect project**
-2. Authorize Lovable di GitHub
-3. Klik **Create Repository** — kode otomatis ter-push ke GitHub
+## B. Buang Field Perubahan (PAK)
+- **`src/data/app-state.ts`**: hapus `perubahanAnggaran` dari `PendapatanItem`, `BelanjaItem`, `PembiayaanItem`
+- **`PendapatanDesa.tsx`**, **`BelanjaDesa.tsx`**, **`PembiayaanDesa.tsx`**:
+  - Buang kolom tabel "Anggaran PAK"
+  - Buang input "Perubahan (Rp)" + ringkasan kanan jadi hanya "Anggaran"
+  - View-mode rincian: hapus kolom Perubahan & Jumlah
 
-### Langkah 2: Daftar/Login Vercel
-1. Buka [vercel.com](https://vercel.com)
-2. Klik **Sign Up** → pilih **Continue with GitHub**
-3. Authorize Vercel untuk akses GitHub Anda
+## C. Bridge Belanja → SPP (No. Ref, Hard-Lock)
+- **`src/data/app-state.ts`** — tambah ke `SPPRincian`:
+  ```ts
+  belanjaId?: string;     // id baris Belanja yang dirujuk
+  noRef?: string;         // nomorUrut Belanja
+  kodeKegiatan?: string;
+  ```
+- **`src/lib/financial-engine.ts`**:
+  - `getPaguKegiatan` → SUM(`belanja[kodeKegiatan].anggaran`) (bukan dari `kegiatanAnggaran`)
+  - Tambah `getSisaBelanjaItem(state, belanjaId, excludeRincianId?)` → anggaran − total terpakai SPP
+  - Tambah `getBelanjaOptionsForKegiatan(state, kodeKegiatan)` → list `{belanjaId, noRef, kodeRekening, namaRekening, sisa}`
+- **`SPPPanjar.tsx`** & **`SPPDefinitif.tsx`** — Tab "Rincian":
+  - Tambah dropdown **Bidang → Kegiatan** di atas dropdown Rincian
+  - Dropdown Rincian: list baris Belanja (No.Ref + Kode + Nama + Sisa) hasil `getBelanjaOptionsForKegiatan`
+  - Auto-fill `kodeRekening`, `namaRekening`, `noRef`, `belanjaId`, `kodeKegiatan`
+  - Validasi: `nilai > sisa` → **toast.error & block** (HARD-LOCK)
+  - Tabel rincian: tambah kolom "No. Ref"
+- **`SPPPembiayaan.tsx`** — hard-lock berdasarkan sisa anggaran `pembiayaan` (jenis pengeluaran)
 
-### Langkah 3: Import Project
-1. Di Vercel dashboard, klik **"Add New..." → Project**
-2. Pilih repository yang baru dibuat dari daftar
-3. Klik **Import**
+## D. Bridge Pendapatan → Penerimaan (Warning Only)
+- **`src/lib/financial-engine.ts`** — tambah `getPendapatanOptions(state)` → `{pendapatanId, kodeRekening, namaRekening, anggaran, terealisasi, sisa}`
+- **`src/pages/PenerimaanDesa.tsx`** (Tab **Tunai** & **Bank** rincian):
+  - Dropdown "Kd Rincian" diganti: ambil dari `getPendapatanOptions` (bukan master rekening pendapatan)
+  - Tampilkan sisa anggaran di label opsi
+  - Jika `nilai > sisa` → toast **warning only** + tetap simpan (sesuai aturan klien)
+- **Tab SiLPA**: TIDAK diubah, tetap independen ambil dari rekening aset
 
-### Langkah 4: Konfigurasi Build
-Vercel biasanya auto-detect, tapi pastikan:
-- **Framework Preset**: Vite
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
+## E. SPJ Kegiatan — Field Tambahan
+- **`src/pages/SPJKegiatan.tsx`**: tambah kolom & field input **Kode Rincian** dan **Nama Rincian** yang otomatis terisi dari rincian SPP yang dirujuk (warisi `noRef`/`belanjaId`/`kodeRekening`/`namaRekening` dari SPP)
 
-### Langkah 5: Tambah Environment Variables
-Di halaman yang sama sebelum deploy, buka bagian **Environment Variables** dan tambahkan:
+## F. Bug Data Demo
+- **`src/data/demo-seed-data.ts`** & lokasi reset di `Beranda.tsx` / `DataUmumDesa.tsx`:
+  - Pastikan user baru / hasil "Reset Semua Progres" → state benar-benar kosong
+  - LRA tidak boleh menampilkan angka demo saat tidak ada input user
+  - Pastikan demo seed hanya aktif via toggle eksplisit di Admin
 
-| Name | Value |
-|------|-------|
-| `VITE_SUPABASE_URL` | `https://lvxxazfxtbinutrnoyui.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2eHhhemZ4dGJpbnV0cm5veXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NTcwMjEsImV4cCI6MjA5MDEzMzAyMX0.rzFIKbe_T-xh1JQ5pdfTsI1ej8NxRyNNdwg6Nq-UNMk` |
-| `VITE_SUPABASE_PROJECT_ID` | `lvxxazfxtbinutrnoyui` |
-
-### Langkah 6: Deploy
-Klik **Deploy** — tunggu 1-2 menit hingga selesai. Vercel akan memberikan URL seperti `nama-project.vercel.app`.
-
-### Langkah 7: Custom Domain (Opsional)
-Di Vercel → Project → **Settings → Domains** → tambahkan domain `.com` Anda dan ikuti instruksi DNS.
+## G. Pembersihan
+- Hapus referensi `kegiatanAnggaran` di seed bila menyebabkan error TS (pertahankan field di interface untuk backward compat state lama)
+- Update memory `mem://logic/budgetary-control` & `mem://logic/input-flow`
 
 ---
 
-## Setelah Deploy
+## Aturan Validasi Final
 
-Setiap kali Anda edit di Lovable, perubahan otomatis sync:
+| Modul | Sumber Anggaran | Aturan |
+|---|---|---|
+| Belanja | Bebas (jadi sumber pagu) | — |
+| SPP Panjar/Definitif | Baris Belanja per No.Ref | **Hard-lock** |
+| SPP Pembiayaan | Pembiayaan Pengeluaran | **Hard-lock** |
+| Penerimaan (Tunai/Bank) | Pendapatan | **Warning only** |
+| SiLPA | Saldo Awal / aset | Independen |
+
+## Diagram Alur Baru
 
 ```text
-Lovable (edit) → GitHub (auto-sync) → Vercel (auto-deploy)
+Parameter (Bidang/Kegiatan, Rekening)
+        │
+        ▼
+PENGANGGARAN
+  ├── Pendapatan Desa  ────────►  Penerimaan Desa (warning)
+  ├── Belanja Desa     ────────►  SPP Panjar/Definitif (hard-lock per No.Ref)
+  │                                   │
+  │                                   ▼
+  │                               SPJ Kegiatan (warisi Kode/Nama Rincian)
+  └── Pembiayaan Desa  ────────►  SPP Pembiayaan (hard-lock)
+                                      │
+                                      ▼
+                                Pencairan → Pembukuan → LRA (auto Anggaran vs Realisasi)
 ```
 
-Tidak perlu langkah manual untuk update berikutnya.
-
+Setelah disetujui, saya implementasikan semua perubahan di atas dalam satu pass.
