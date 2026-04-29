@@ -105,17 +105,18 @@ export function useGroupRealtimeSync() {
 
             latestPayload = row.form_data as Record<string, unknown>;
 
-            // Smart debounce: if more updates come in within 700ms, only
-            // apply the LAST one (avoids reload-storm on slow devices)
+            // Smart debounce: collapse bursts within 200ms into one apply
+            // (fast enough so collaborators see updates near-instantly,
+            // still avoids reload-storm when many rows arrive in sequence)
             if (pendingApplyTimer) clearTimeout(pendingApplyTimer);
             pendingApplyTimer = setTimeout(() => {
               if (!latestPayload) return;
               const changed = applyIncomingState(latestPayload);
               latestPayload = null;
               if (changed) {
-                toast.info("Pekerjaan kelompok diperbarui", { duration: 1200 });
+                toast.info("Pekerjaan kelompok diperbarui", { duration: 1000 });
               }
-            }, 700);
+            }, 200);
           },
         )
         .subscribe();
