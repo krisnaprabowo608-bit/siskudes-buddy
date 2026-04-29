@@ -26,7 +26,8 @@ export default function SPPPanjar() {
 
   const [rincianMode, setRincianMode] = useState<Mode>("view");
   const [selectedRincian, setSelectedRincian] = useState<SPPRincian | null>(null);
-  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0 });
+  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0, belanjaId: "", noRef: "", kodeKegiatan: "", kodeBidang: "", namaKegiatan: "" });
+  const [pickedKegiatan, setPickedKegiatan] = useState<string>("");
 
   const [buktiMode, setBuktiMode] = useState<Mode>("view");
   const [selectedBukti, setSelectedBukti] = useState<BuktiTransaksi | null>(null);
@@ -89,9 +90,15 @@ export default function SPPPanjar() {
     toast.success(selected.isFinal ? "Status Final dibatalkan" : "SPP ditetapkan sebagai Final");
   };
 
-  // Rincian Actions
+  // Rincian Actions — bridge ke Belanja per No.Ref + hard-lock
   const handleSimpanRincian = () => {
-    if (!selected || !rincianForm.kodeRekening) { toast.error("Pilih rekening"); return; }
+    if (!selected || !rincianForm.belanjaId) { toast.error("Pilih baris Belanja (No. Ref) terlebih dahulu"); return; }
+    if (!rincianForm.nilai || rincianForm.nilai <= 0) { toast.error("Nilai harus lebih dari 0"); return; }
+    const sisa = getSisaBelanjaItem(loadState(), rincianForm.belanjaId, rincianMode === "edit" ? selectedRincian?.id : undefined);
+    if (rincianForm.nilai > sisa) {
+      toast.error(`Nilai melebihi sisa anggaran (Rp ${fmt(sisa)}) — tidak dapat disimpan`);
+      return;
+    }
     let updRincian: SPPRincian[];
     if (rincianMode === "add") { updRincian = [...selected.rincian, { id: crypto.randomUUID(), ...rincianForm }]; }
     else { updRincian = selected.rincian.map(r => r.id === selectedRincian?.id ? { ...r, ...rincianForm } : r); }
@@ -103,6 +110,21 @@ export default function SPPPanjar() {
     setSelectedRincian(null);
     toast.success("Rincian disimpan");
   };
+
+  // List kegiatan unik dari Belanja yang sudah diinput
+  const kegiatanOptions = useMemo(() => {
+    const state = loadState();
+    const seen = new Map<string, { kode: string; nama: string; kodeBidang: string }>();
+    state.belanja.forEach(b => {
+      if (!seen.has(b.kodeKegiatan)) seen.set(b.kodeKegiatan, { kode: b.kodeKegiatan, nama: b.namaKegiatan, kodeBidang: b.kodeBidang });
+    });
+    return Array.from(seen.values());
+  }, [items, activeTab, rincianMode]);
+
+  const belanjaOptions = useMemo(() => {
+    if (!pickedKegiatan) return [];
+    return getBelanjaOptionsForKegiatan(loadState(), pickedKegiatan, rincianMode === "edit" ? selectedRincian?.id : undefined);
+  }, [pickedKegiatan, items, rincianMode, selectedRincian]);
 
   // Bukti Actions
   const handleSimpanBukti = () => {
