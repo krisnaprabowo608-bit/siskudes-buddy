@@ -3,6 +3,7 @@ import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type PenerimaanItem, type PenerimaanRincian, type SilpaItem, type SilpaRincian } from "@/data/app-state";
+import { getPendapatanOptions } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -314,6 +315,12 @@ function PenerimaanTab({ jenis }: { jenis: "tunai" | "bank" }) {
   const addRincian = () => {
     if (!rincianForm.kodeRekening) return toast.error("Pilih rekening rincian");
     if (rincianForm.nilai <= 0) return toast.error("Nilai harus > 0");
+    // Bridge ke Pendapatan: warning-only jika melebihi sisa anggaran
+    const opts = getPendapatanOptions(loadState());
+    const opt = opts.find(o => o.kodeRekening === rincianForm.kodeRekening);
+    if (opt && rincianForm.nilai > opt.sisa) {
+      toast.warning(`Nilai melebihi sisa anggaran Pendapatan (Rp ${opt.sisa.toLocaleString("id-ID")}). Tetap disimpan.`);
+    }
     const newR: PenerimaanRincian = { id: crypto.randomUUID(), ...rincianForm };
     const newRincian = [...form.rincian, newR];
     setForm({ ...form, rincian: newRincian, jumlah: newRincian.reduce((s, r) => s + r.nilai, 0) });
@@ -545,13 +552,21 @@ function PenerimaanTab({ jenis }: { jenis: "tunai" | "bank" }) {
           {mode !== "view" && (
             <div className="grid grid-cols-5 gap-2 mt-3 items-end">
               <div>
-                <Label className="text-[10px]">Kd Rincian</Label>
+                <Label className="text-[10px]">Kd Rincian (dari Pendapatan)</Label>
                 <Select value={rincianForm.kodeRekening} onValueChange={v => {
-                  const r = rekeningPendapatan.find(x => x.kode === v);
-                  setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: r?.uraian || "" });
+                  const opts = getPendapatanOptions(loadState());
+                  const o = opts.find(x => x.kodeRekening === v);
+                  setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: o?.namaRekening || "", sumberDana: o?.sumberDana || rincianForm.sumberDana });
                 }}>
-                  <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{rekeningPendapatan.map(r => <SelectItem key={r.kode} value={r.kode}><span className="text-[10px]">{r.kode}</span></SelectItem>)}</SelectContent>
+                  <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Pilih dari anggaran Pendapatan" /></SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const opts = getPendapatanOptions(loadState());
+                      return opts.length === 0
+                        ? <SelectItem value="__empty" disabled>Belum ada Pendapatan dianggarkan</SelectItem>
+                        : opts.map(o => <SelectItem key={o.pendapatanId} value={o.kodeRekening}><span className="text-[10px]">{o.kodeRekening} — Sisa: {o.sisa.toLocaleString("id-ID")}</span></SelectItem>);
+                    })()}
+                  </SelectContent>
                 </Select>
               </div>
               <div>

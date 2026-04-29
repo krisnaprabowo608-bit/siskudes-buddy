@@ -73,7 +73,7 @@ export function hitungRealisasiPendapatan(state: AppState): RealisasiRekening[] 
   const result: RealisasiRekening[] = [];
   
   state.pendapatan.forEach(p => {
-    const anggaranSetelahPAK = p.anggaran + p.perubahanAnggaran;
+    const anggaranSetelahPAK = (p.anggaran || 0) + (p.perubahanAnggaran || 0);
     // Realisasi = total penerimaan (TBP) yang menggunakan rekening ini
     // Check both direct kodeRekening and rincian items
     let realisasi = 0;
@@ -112,11 +112,11 @@ export function hitungRealisasiBelanja(state: AppState): RealisasiRekening[] {
   state.belanja.forEach(b => {
     const existing = belanjaMap.get(b.kodeRekening);
     if (existing) {
-      existing.anggaran += b.anggaran;
-      existing.pak += b.perubahanAnggaran;
+      existing.anggaran += (b.anggaran || 0);
+      existing.pak += (b.perubahanAnggaran || 0);
     } else {
       belanjaMap.set(b.kodeRekening, { 
-        anggaran: b.anggaran, pak: b.perubahanAnggaran, nama: b.namaRekening,
+        anggaran: (b.anggaran || 0), pak: (b.perubahanAnggaran || 0), nama: b.namaRekening,
         kodeBidang: b.kodeBidang, kodeKegiatan: b.kodeKegiatan, namaKegiatan: b.namaKegiatan
       });
     }
@@ -160,7 +160,7 @@ export function hitungRealisasiPembiayaan(state: AppState): { penerimaan: Realis
   const pengeluaran: RealisasiRekening[] = [];
   
   state.pembiayaan.forEach(p => {
-    const anggaranSetelahPAK = p.anggaran + p.perubahanAnggaran;
+    const anggaranSetelahPAK = (p.anggaran || 0) + (p.perubahanAnggaran || 0);
     let realisasi = 0;
     
     if (p.jenis === 'pengeluaran') {
@@ -537,10 +537,10 @@ export function generateBKPPajak(state: AppState): BKPPajakEntry[] {
 
 // ============ VALIDASI APBDes BALANCE ============
 export function validasiAPBDesBalance(state: AppState): { balanced: boolean; pendapatan: number; belanja: number; pembiayaanNetto: number; silpa: number } {
-  const totalPendapatan = state.pendapatan.reduce((s, p) => s + p.anggaran + p.perubahanAnggaran, 0);
-  const totalBelanja = state.belanja.reduce((s, b) => s + b.anggaran + b.perubahanAnggaran, 0);
-  const totalPenerimaanPembiayaan = state.pembiayaan.filter(p => p.jenis === 'penerimaan').reduce((s, p) => s + p.anggaran + p.perubahanAnggaran, 0);
-  const totalPengeluaranPembiayaan = state.pembiayaan.filter(p => p.jenis === 'pengeluaran').reduce((s, p) => s + p.anggaran + p.perubahanAnggaran, 0);
+  const totalPendapatan = state.pendapatan.reduce((s, p) => s + (p.anggaran || 0) + (p.perubahanAnggaran || 0), 0);
+  const totalBelanja = state.belanja.reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0), 0);
+  const totalPenerimaanPembiayaan = state.pembiayaan.filter(p => p.jenis === 'penerimaan').reduce((s, p) => s + (p.anggaran || 0) + (p.perubahanAnggaran || 0), 0);
+  const totalPengeluaranPembiayaan = state.pembiayaan.filter(p => p.jenis === 'pengeluaran').reduce((s, p) => s + (p.anggaran || 0) + (p.perubahanAnggaran || 0), 0);
   const pembiayaanNetto = totalPenerimaanPembiayaan - totalPengeluaranPembiayaan;
   const silpa = totalPendapatan + pembiayaanNetto - totalBelanja;
   
@@ -557,7 +557,7 @@ export function validasiAPBDesBalance(state: AppState): { balanced: boolean; pen
 export function cekSaldoAnggaran(state: AppState, kodeRekening: string): number {
   const anggaran = state.belanja
     .filter(b => b.kodeRekening === kodeRekening)
-    .reduce((s, b) => s + b.anggaran + b.perubahanAnggaran, 0);
+    .reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0), 0);
   
   const realisasi = state.pencairan.reduce((total, pc) => {
     const spp = state.spp.find(s => s.id === pc.sppId);

@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi, type PotonganPajak } from "@/data/app-state";
+import { getBelanjaOptionsForKegiatan, getSisaBelanjaItem } from "@/lib/financial-engine";
+import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +26,8 @@ export default function SPPPanjar() {
 
   const [rincianMode, setRincianMode] = useState<Mode>("view");
   const [selectedRincian, setSelectedRincian] = useState<SPPRincian | null>(null);
-  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0 });
+  const [rincianForm, setRincianForm] = useState<Omit<SPPRincian, "id">>({ kodeRekening: "", namaRekening: "", nilai: 0, belanjaId: "", noRef: "", kodeKegiatan: "", kodeBidang: "", namaKegiatan: "" });
+  const [pickedKegiatan, setPickedKegiatan] = useState<string>("");
 
   const [buktiMode, setBuktiMode] = useState<Mode>("view");
   const [selectedBukti, setSelectedBukti] = useState<BuktiTransaksi | null>(null);
@@ -87,9 +90,15 @@ export default function SPPPanjar() {
     toast.success(selected.isFinal ? "Status Final dibatalkan" : "SPP ditetapkan sebagai Final");
   };
 
-  // Rincian Actions
+  // Rincian Actions — bridge ke Belanja per No.Ref + hard-lock
   const handleSimpanRincian = () => {
-    if (!selected || !rincianForm.kodeRekening) { toast.error("Pilih rekening"); return; }
+    if (!selected || !rincianForm.belanjaId) { toast.error("Pilih baris Belanja (No. Ref) terlebih dahulu"); return; }
+    if (!rincianForm.nilai || rincianForm.nilai <= 0) { toast.error("Nilai harus lebih dari 0"); return; }
+    const sisa = getSisaBelanjaItem(loadState(), rincianForm.belanjaId, rincianMode === "edit" ? selectedRincian?.id : undefined);
+    if (rincianForm.nilai > sisa) {
+      toast.error(`Nilai melebihi sisa anggaran (Rp ${fmt(sisa)}) — tidak dapat disimpan`);
+      return;
+    }
     let updRincian: SPPRincian[];
     if (rincianMode === "add") { updRincian = [...selected.rincian, { id: crypto.randomUUID(), ...rincianForm }]; }
     else { updRincian = selected.rincian.map(r => r.id === selectedRincian?.id ? { ...r, ...rincianForm } : r); }
@@ -101,6 +110,21 @@ export default function SPPPanjar() {
     setSelectedRincian(null);
     toast.success("Rincian disimpan");
   };
+
+  // List kegiatan unik dari Belanja yang sudah diinput
+  const kegiatanOptions = useMemo(() => {
+    const state = loadState();
+    const seen = new Map<string, { kode: string; nama: string; kodeBidang: string }>();
+    state.belanja.forEach(b => {
+      if (!seen.has(b.kodeKegiatan)) seen.set(b.kodeKegiatan, { kode: b.kodeKegiatan, nama: b.namaKegiatan, kodeBidang: b.kodeBidang });
+    });
+    return Array.from(seen.values());
+  }, [items, activeTab, rincianMode]);
+
+  const belanjaOptions = useMemo(() => {
+    if (!pickedKegiatan) return [];
+    return getBelanjaOptionsForKegiatan(loadState(), pickedKegiatan, rincianMode === "edit" ? selectedRincian?.id : undefined);
+  }, [pickedKegiatan, items, rincianMode, selectedRincian]);
 
   // Bukti Actions
   const handleSimpanBukti = () => {
@@ -258,27 +282,47 @@ export default function SPPPanjar() {
               <div className="flex-1 overflow-auto border-b border-border">
                 <Table>
                   <TableHeader><TableRow className="bg-secondary/50 text-[11px]">
-                    <TableHead>Kd_Rincian</TableHead><TableHead>NoID</TableHead><TableHead>Nama_Rincian</TableHead><TableHead>Sumber</TableHead><TableHead className="text-right">Nilai</TableHead>
+                    <TableHead>No.Ref</TableHead><TableHead>Kd_Rincian</TableHead><TableHead>Nama_Rincian</TableHead><TableHead>Kegiatan</TableHead><TableHead className="text-right">Nilai</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
                     {selected.rincian.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-xs">Belum ada rincian</TableCell></TableRow>
-                    : selected.rincian.map((r, idx) => (
+                    : selected.rincian.map((r) => (
                       <TableRow key={r.id}
                         className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
                         onClick={() => setSelectedRincian(r)}
                         onDoubleClick={() => { setSelectedRincian(r); setActiveTab("bukti"); }}>
-                        <TableCell className="font-mono">{r.kodeRekening}</TableCell><TableCell>{idx + 1}</TableCell><TableCell>{r.namaRekening}</TableCell><TableCell>DDS</TableCell><TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
+                        <TableCell className="font-mono">{r.noRef || "-"}</TableCell>
+                        <TableCell className="font-mono">{r.kodeRekening}</TableCell>
+                        <TableCell>{r.namaRekening}</TableCell>
+                        <TableCell className="text-[10px] text-muted-foreground max-w-[180px] truncate">{r.kodeKegiatan ? `${r.kodeKegiatan} ${r.namaKegiatan || ""}` : "-"}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
               <div className="p-4 space-y-2 bg-muted/10">
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Rincian</Label>
-                  <Select value={rincianMode !== "view" ? rincianForm.kodeRekening : selectedRincian?.kodeRekening || ""} disabled={rincianMode === "view"}
-                    onValueChange={v => { const r = rekeningBelanja.find(x => x.kode === v); setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: r?.uraian || "" }); }}>
-                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Rekening" /></SelectTrigger>
-                    <SelectContent>{rekeningBelanja.map(r => <SelectItem key={r.kode} value={r.kode}>{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
+                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Bidang/Kegiatan</Label>
+                  <Select value={pickedKegiatan} disabled={rincianMode === "view"} onValueChange={v => { setPickedKegiatan(v); setRincianForm({ ...rincianForm, belanjaId: "", noRef: "", kodeRekening: "", namaRekening: "" }); }}>
+                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Kegiatan (sumber pagu Belanja)" /></SelectTrigger>
+                    <SelectContent>
+                      {kegiatanOptions.length === 0 ? <SelectItem value="__empty" disabled>Belum ada Belanja yang diinput</SelectItem>
+                      : kegiatanOptions.map(k => <SelectItem key={k.kode} value={k.kode}>{k.kode} — {k.nama}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">No. Ref Belanja</Label>
+                  <Select value={rincianForm.belanjaId || ""} disabled={rincianMode === "view" || !pickedKegiatan}
+                    onValueChange={v => {
+                      const opt = belanjaOptions.find(o => o.belanjaId === v);
+                      const keg = kegiatanOptions.find(k => k.kode === pickedKegiatan);
+                      if (opt) setRincianForm({ ...rincianForm, belanjaId: v, noRef: opt.noRef, kodeRekening: opt.kodeRekening, namaRekening: opt.namaRekening, kodeKegiatan: pickedKegiatan, kodeBidang: keg?.kodeBidang || "", namaKegiatan: keg?.nama || "" });
+                    }}>
+                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Baris Belanja (No.Ref)" /></SelectTrigger>
+                    <SelectContent>
+                      {belanjaOptions.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada baris Belanja</SelectItem>
+                      : belanjaOptions.map(o => <SelectItem key={o.belanjaId} value={o.belanjaId}>[{o.noRef || "-"}] {o.kodeRekening} — {o.namaRekening} (Sisa: {fmt(o.sisa)})</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nama Rincian</Label>
@@ -286,12 +330,15 @@ export default function SPPPanjar() {
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nilai</Label>
                   <Input type="number" className="h-7 text-[11px] text-right" disabled={rincianMode === "view"}
                     value={rincianMode !== "view" ? rincianForm.nilai || "" : selectedRincian?.nilai || ""} onChange={e => setRincianForm({ ...rincianForm, nilai: Number(e.target.value) })} /></div>
+                {rincianMode !== "view" && rincianForm.belanjaId && (
+                  <p className="text-[10px] text-muted-foreground pl-[104px]">Sisa anggaran baris ini: <span className="font-semibold text-foreground">Rp {fmt(getSisaBelanjaItem(loadState(), rincianForm.belanjaId, rincianMode === "edit" ? selectedRincian?.id : undefined))}</span></p>
+                )}
               </div>
               <ActionBar
-                onTambah={() => { if (selected.isFinal) { toast.error("SPP sudah Final"); return; } setRincianMode("add"); setSelectedRincian(null); setRincianForm({ kodeRekening: "", namaRekening: "", nilai: 0 }); }}
-                onUbah={() => { if (!selectedRincian) { toast.error("Pilih rincian"); return; } setRincianMode("edit"); setRincianForm({ kodeRekening: selectedRincian.kodeRekening, namaRekening: selectedRincian.namaRekening, nilai: selectedRincian.nilai }); }}
+                onTambah={() => { if (selected.isFinal) { toast.error("SPP sudah Final"); return; } setRincianMode("add"); setSelectedRincian(null); setPickedKegiatan(""); setRincianForm({ kodeRekening: "", namaRekening: "", nilai: 0, belanjaId: "", noRef: "", kodeKegiatan: "", kodeBidang: "", namaKegiatan: "" }); }}
+                onUbah={() => { if (!selectedRincian) { toast.error("Pilih rincian"); return; } setRincianMode("edit"); setPickedKegiatan(selectedRincian.kodeKegiatan || ""); setRincianForm({ kodeRekening: selectedRincian.kodeRekening, namaRekening: selectedRincian.namaRekening, nilai: selectedRincian.nilai, belanjaId: selectedRincian.belanjaId || "", noRef: selectedRincian.noRef || "", kodeKegiatan: selectedRincian.kodeKegiatan || "", kodeBidang: selectedRincian.kodeBidang || "", namaKegiatan: selectedRincian.namaKegiatan || "" }); }}
                 onHapus={() => { if (!selectedRincian) return; if (selected.isFinal) { toast.error("SPP sudah Final"); return; } const upd = items.map(i => i.id === selected.id ? { ...i, rincian: i.rincian.filter(r => r.id !== selectedRincian.id), jumlah: i.rincian.filter(r => r.id !== selectedRincian.id).reduce((s,r) => s+r.nilai, 0) } : i); save(upd); setSelected(upd.find(i => i.id === selected.id) || null); setSelectedRincian(null); toast.success("Rincian dihapus"); }}
-                onBatal={() => { setRincianMode("view"); setSelectedRincian(null); }}
+                onBatal={() => { setRincianMode("view"); setSelectedRincian(null); setPickedKegiatan(""); }}
                 onSimpan={handleSimpanRincian}
                 onTutup={() => setActiveTab("spp")}
               />

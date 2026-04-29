@@ -80,14 +80,14 @@ export default function LaporanPenjabaran() {
               </tr>
               {Array.from(belanjaByBidang.entries()).map(([bidangKode, items]) => {
                 const bidang = bidangKegiatanData.find(b => b.kode === bidangKode);
-                const totalBidang = items.reduce((s, b) => s + b.anggaran + b.perubahanAnggaran, 0);
+                const totalBidang = items.reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0), 0);
                 return (
                   <React.Fragment key={bidangKode}>
                     <tr className="font-semibold bg-gray-50">
                       <td className="py-1 px-2 border border-gray-300 pl-4">{bidangKode}</td>
                       <td className="py-1 px-2 border border-gray-300">{bidang?.nama || bidangKode}</td>
                       <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + b.anggaran, 0))}</td>
-                      <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + b.perubahanAnggaran, 0))}</td>
+                      <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + (b.perubahanAnggaran || 0), 0))}</td>
                       <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(totalBidang)}</td>
                       <td className="border border-gray-300"></td>
                     </tr>
@@ -96,8 +96,8 @@ export default function LaporanPenjabaran() {
                         <td className="py-1 px-2 border border-gray-300 pl-8">{b.kodeRekening}</td>
                         <td className="py-1 px-2 border border-gray-300 pl-4">{b.uraian || b.namaRekening}</td>
                         <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.anggaran)}</td>
-                        <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.perubahanAnggaran)}</td>
-                        <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.anggaran + b.perubahanAnggaran)}</td>
+                        <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.perubahanAnggaran || 0)}</td>
+                        <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah((b.anggaran || 0) + (b.perubahanAnggaran || 0))}</td>
                         <td className="py-1 px-2 border border-gray-300">{b.sumberDana}</td>
                       </tr>
                     ))}
@@ -107,7 +107,7 @@ export default function LaporanPenjabaran() {
               <tr className="font-bold bg-gray-100">
                 <td className="py-1.5 px-2 border border-gray-400" colSpan={2}>JUMLAH BELANJA</td>
                 <td className="py-1.5 px-2 text-right border border-gray-400">{formatRupiah(state.belanja.reduce((s, b) => s + b.anggaran, 0))}</td>
-                <td className="py-1.5 px-2 text-right border border-gray-400">{formatRupiah(state.belanja.reduce((s, b) => s + b.perubahanAnggaran, 0))}</td>
+                <td className="py-1.5 px-2 text-right border border-gray-400">{formatRupiah(state.belanja.reduce((s, b) => s + (b.perubahanAnggaran || 0), 0))}</td>
                 <td className="py-1.5 px-2 text-right border border-gray-400">{formatRupiah(data.totalAnggaranBelanja)}</td>
                 <td className="border border-gray-400"></td>
               </tr>

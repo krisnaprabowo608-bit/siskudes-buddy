@@ -3,6 +3,7 @@ import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi } from "@/data/app-state";
+import { getPembiayaanPengeluaranOptions } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,9 +84,17 @@ export default function SPPPembiayaan() {
     toast.success(selected.isFinal ? "Status Final dibatalkan" : "SPP ditetapkan sebagai Final");
   };
 
-  // Rincian
+  // Rincian — hard-lock vs anggaran Pembiayaan Pengeluaran per rekening
   const handleSimpanRincian = () => {
     if (!selected || !rincianForm.kodeRekening) { toast.error("Pilih rekening"); return; }
+    if (!rincianForm.nilai || rincianForm.nilai <= 0) { toast.error("Nilai harus lebih dari 0"); return; }
+    const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+    const opt = opts.find(o => o.kodeRekening === rincianForm.kodeRekening);
+    if (!opt) { toast.error("Rekening pembiayaan pengeluaran belum dianggarkan"); return; }
+    if (rincianForm.nilai > opt.sisa) {
+      toast.error(`Nilai melebihi sisa anggaran (Rp ${fmt(opt.sisa)})`);
+      return;
+    }
     let updRincian: SPPRincian[];
     if (rincianMode === "add") { updRincian = [...selected.rincian, { id: crypto.randomUUID(), ...rincianForm }]; }
     else { updRincian = selected.rincian.map(r => r.id === selectedRincian?.id ? { ...r, ...rincianForm } : r); }
@@ -198,24 +207,38 @@ export default function SPPPembiayaan() {
               <div className="flex-1 overflow-auto border-b border-border">
                 <Table>
                   <TableHeader><TableRow className="bg-secondary/50 text-[11px]">
-                    <TableHead>Kd_Rincian</TableHead><TableHead>NoID</TableHead><TableHead>Nama_Rincian</TableHead><TableHead>Sumber</TableHead><TableHead className="text-right">Nilai</TableHead>
+                    <TableHead>Kd_Rincian</TableHead><TableHead>NoID</TableHead><TableHead>Nama_Rincian</TableHead><TableHead className="text-right">Sisa</TableHead><TableHead className="text-right">Nilai</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
                     {selected.rincian.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-xs">Belum ada rincian</TableCell></TableRow>
-                    : selected.rincian.map((r, idx) => (
+                    : selected.rincian.map((r, idx) => {
+                      const opts = getPembiayaanPengeluaranOptions(loadState());
+                      const o = opts.find(x => x.kodeRekening === r.kodeRekening);
+                      return (
                       <TableRow key={r.id} className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedRincian(r)} onDoubleClick={() => { setSelectedRincian(r); setActiveTab("bukti"); }}>
-                        <TableCell className="font-mono">{r.kodeRekening}</TableCell><TableCell>{idx + 1}</TableCell><TableCell>{r.namaRekening}</TableCell><TableCell>DDS</TableCell><TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
-                      </TableRow>
-                    ))}
+                        <TableCell className="font-mono">{r.kodeRekening}</TableCell><TableCell>{idx + 1}</TableCell><TableCell>{r.namaRekening}</TableCell><TableCell className="text-right text-[10px] text-muted-foreground">{o ? fmt(o.sisa) : "-"}</TableCell><TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
+                      </TableRow>);
+                    })}
                   </TableBody>
                 </Table>
               </div>
               <div className="p-4 space-y-2 bg-muted/10">
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Rincian</Label>
                   <Select value={rincianMode !== "view" ? rincianForm.kodeRekening : selectedRincian?.kodeRekening || ""} disabled={rincianMode === "view"}
-                    onValueChange={v => { const r = rekeningPembiayaan.find(x => x.kode === v); setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: r?.uraian || "" }); }}>
-                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Rekening Pembiayaan" /></SelectTrigger>
-                    <SelectContent>{rekeningPembiayaan.map(r => <SelectItem key={r.kode} value={r.kode}>{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
+                    onValueChange={v => {
+                      const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+                      const o = opts.find(x => x.kodeRekening === v);
+                      setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: o?.namaRekening || "" });
+                    }}>
+                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Pembiayaan Pengeluaran (yang dianggarkan)" /></SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+                        return opts.length === 0
+                          ? <SelectItem value="__empty" disabled>Belum ada Pembiayaan Pengeluaran</SelectItem>
+                          : opts.map(o => <SelectItem key={o.pembiayaanId} value={o.kodeRekening}>{o.kodeRekening} — {o.namaRekening} (Sisa: {fmt(o.sisa)})</SelectItem>);
+                      })()}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nama Rincian</Label>
