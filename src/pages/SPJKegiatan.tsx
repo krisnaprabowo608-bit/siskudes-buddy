@@ -152,23 +152,23 @@ export default function SPJKegiatan() {
 
               {selectedSPP && selectedSPP.rincian.length > 0 && (
                 <div className="flex-shrink-0 max-h-[140px] overflow-auto border-b border-border">
-                  <div className="px-3 py-1 bg-secondary/30 text-[10px] font-semibold">Rincian Belanja Terkait</div>
+                  <div className="px-3 py-1 bg-secondary/30 text-[10px] font-semibold sticky top-0 z-20">Rincian Belanja Terkait</div>
                   <Table>
-                    <TableHeader>
-                      <TableRow className="bg-secondary/40 text-[11px]">
-                        <TableHead className="font-semibold">No.Ref</TableHead>
-                        <TableHead className="font-semibold">Kode Rincian</TableHead>
-                        <TableHead className="font-semibold">Nama Rincian</TableHead>
-                        <TableHead className="font-semibold">Kegiatan</TableHead>
-                        <TableHead className="font-semibold text-right">Nilai</TableHead>
+                    <TableHeader className="sticky top-[22px] z-10 bg-secondary/40 [&_tr]:border-b">
+                      <TableRow className="bg-secondary/40 text-[11px] hover:bg-secondary/40">
+                        <TableHead className="font-semibold bg-secondary/40">No.Ref</TableHead>
+                        <TableHead className="font-semibold bg-secondary/40">Kode Rincian</TableHead>
+                        <TableHead className="font-semibold bg-secondary/40">Nama Rincian</TableHead>
+                        <TableHead className="font-semibold bg-secondary/40">Kegiatan</TableHead>
+                        <TableHead className="font-semibold bg-secondary/40 text-right">Nilai</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedSPP.rincian.map(r => (
                         <TableRow key={r.id} className="text-[11px]">
                           <TableCell className="font-mono">{r.noRef || "-"}</TableCell>
-                          <TableCell className="font-mono">{r.kodeRekening}</TableCell>
-                          <TableCell>{r.namaRekening}</TableCell>
+                          <TableCell className="font-mono">{r.kodeRekening || "-"}</TableCell>
+                          <TableCell>{r.namaRekening || r.kodeRekening || r.kodeKegiatan || "-"}</TableCell>
                           <TableCell className="text-[10px] text-muted-foreground">{r.namaKegiatan || r.kodeKegiatan || "-"}</TableCell>
                           <TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
                         </TableRow>
