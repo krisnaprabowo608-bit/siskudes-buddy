@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi, type PotonganPajak } from "@/data/app-state";
+import { getBelanjaOptionsForKegiatan, getSisaBelanjaItem } from "@/lib/financial-engine";
+import { bidangKegiatanData } from "@/data/siskeudes-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
