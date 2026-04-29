@@ -3,6 +3,7 @@ import FormPageHeader from "@/components/FormPageHeader";
 import { trackFormProgress } from "@/lib/session-manager";
 import { getRekeningDetail } from "@/data/rekening-data";
 import { loadState, saveState, type SPPItem, type SPPRincian, type BuktiTransaksi } from "@/data/app-state";
+import { getPembiayaanPengeluaranOptions } from "@/lib/financial-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,9 +84,17 @@ export default function SPPPembiayaan() {
     toast.success(selected.isFinal ? "Status Final dibatalkan" : "SPP ditetapkan sebagai Final");
   };
 
-  // Rincian
+  // Rincian — hard-lock vs anggaran Pembiayaan Pengeluaran per rekening
   const handleSimpanRincian = () => {
     if (!selected || !rincianForm.kodeRekening) { toast.error("Pilih rekening"); return; }
+    if (!rincianForm.nilai || rincianForm.nilai <= 0) { toast.error("Nilai harus lebih dari 0"); return; }
+    const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+    const opt = opts.find(o => o.kodeRekening === rincianForm.kodeRekening);
+    if (!opt) { toast.error("Rekening pembiayaan pengeluaran belum dianggarkan"); return; }
+    if (rincianForm.nilai > opt.sisa) {
+      toast.error(`Nilai melebihi sisa anggaran (Rp ${fmt(opt.sisa)})`);
+      return;
+    }
     let updRincian: SPPRincian[];
     if (rincianMode === "add") { updRincian = [...selected.rincian, { id: crypto.randomUUID(), ...rincianForm }]; }
     else { updRincian = selected.rincian.map(r => r.id === selectedRincian?.id ? { ...r, ...rincianForm } : r); }
