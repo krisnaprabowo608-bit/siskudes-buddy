@@ -22,7 +22,7 @@ export default function PendapatanDesa() {
 
   const emptyForm = {
     kodeRekening: "", namaRekening: "", uraian: "", anggaran: 0,
-    perubahanAnggaran: 0, sumberDana: "", jumlahSatuan: "", hargaSatuan: 0,
+    sumberDana: "", jumlahSatuan: "", hargaSatuan: 0,
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -37,11 +37,7 @@ export default function PendapatanDesa() {
 
   const selectedItem = items.find(i => i.id === selectedId);
 
-  const handleTambah = () => {
-    setMode("tambah");
-    setSelectedId(null);
-    setForm(emptyForm);
-  };
+  const handleTambah = () => { setMode("tambah"); setSelectedId(null); setForm(emptyForm); };
 
   const handleUbah = () => {
     if (!selectedItem) return toast.error("Pilih data yang akan diubah");
@@ -51,7 +47,6 @@ export default function PendapatanDesa() {
       namaRekening: selectedItem.namaRekening,
       uraian: selectedItem.uraian,
       anggaran: selectedItem.anggaran,
-      perubahanAnggaran: selectedItem.perubahanAnggaran,
       sumberDana: selectedItem.sumberDana,
       jumlahSatuan: selectedItem.jumlahSatuan,
       hargaSatuan: selectedItem.hargaSatuan,
@@ -66,10 +61,7 @@ export default function PendapatanDesa() {
     toast.success("Data dihapus");
   };
 
-  const handleBatal = () => {
-    setMode("view");
-    setForm(emptyForm);
-  };
+  const handleBatal = () => { setMode("view"); setForm(emptyForm); };
 
   const handleSimpan = () => {
     if (!form.kodeRekening) return toast.error("Pilih rekening terlebih dahulu");
@@ -80,14 +72,13 @@ export default function PendapatanDesa() {
       save(items.map(i => i.id === selectedId ? { ...i, ...form, anggaran } : i));
       toast.success("Data diperbarui");
     } else {
-      const newItem = { id: crypto.randomUUID(), ...form, anggaran };
+      const newItem: PendapatanItem = { id: crypto.randomUUID(), ...form, anggaran };
       save([...items, newItem]);
       setSelectedId(newItem.id);
       toast.success("Data ditambahkan");
     }
     trackFormProgress("pendapatan");
-    setMode("view");
-    setForm(emptyForm);
+    setMode("view"); setForm(emptyForm);
   };
 
   const handleRekeningChange = (kode: string) => {
@@ -96,14 +87,11 @@ export default function PendapatanDesa() {
   };
 
   const total = items.reduce((s, i) => s + i.anggaran, 0);
-  const totalPAK = items.reduce((s, i) => s + i.perubahanAnggaran, 0);
   const computedAnggaran = (Number(form.jumlahSatuan) * form.hargaSatuan) || form.anggaran;
-  const computedJumlah = computedAnggaran + form.perubahanAnggaran;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Title */}
-      <FormPageHeader title="Data Pendapatan Desa" subtitle="Anggaran dan perubahan pendapatan" />
+      <FormPageHeader title="Data Pendapatan Desa" subtitle="Anggaran pendapatan desa" />
 
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {/* Master Table */}
@@ -114,12 +102,11 @@ export default function PendapatanDesa() {
                 <TableHead className="font-semibold text-xs">Kd_Rincian</TableHead>
                 <TableHead className="font-semibold text-xs">Nama_Rincian</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Anggaran</TableHead>
-                <TableHead className="font-semibold text-xs text-right">Anggaran PAK</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6 text-sm">Belum ada data pendapatan</TableCell></TableRow>
+                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6 text-sm">Belum ada data pendapatan</TableCell></TableRow>
               ) : items.map(item => (
                 <TableRow
                   key={item.id}
@@ -129,7 +116,6 @@ export default function PendapatanDesa() {
                   <TableCell><span className="font-mono text-xs">{item.kodeRekening}</span></TableCell>
                   <TableCell className="text-sm">{item.namaRekening}</TableCell>
                   <TableCell className="text-sm text-right font-medium">{item.anggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-sm text-right">{item.perubahanAnggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                 </TableRow>
               ))}
               {items.length > 0 && (
@@ -137,7 +123,6 @@ export default function PendapatanDesa() {
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell />
                   <TableCell className="text-right text-sm">{total.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right text-sm">{totalPAK.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -147,7 +132,6 @@ export default function PendapatanDesa() {
         {/* Detail / Form Panel */}
         <div className="content-card p-4">
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {/* Left: Rekening info */}
             <div className="space-y-3">
               <div>
                 <Label className="text-xs font-semibold">Kode</Label>
@@ -166,19 +150,10 @@ export default function PendapatanDesa() {
               </div>
             </div>
 
-            {/* Right: Anggaran summary */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label className="text-xs font-semibold">Anggaran</Label>
-                <span className="text-sm font-mono font-medium">{(mode !== "view" ? computedAnggaran : (selectedItem?.anggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <Label className="text-xs font-semibold">Perubahan</Label>
-                <span className="text-sm font-mono">{(mode !== "view" ? form.perubahanAnggaran : (selectedItem?.perubahanAnggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span>
-              </div>
               <div className="flex justify-between items-center border-t pt-1">
-                <Label className="text-xs font-bold">Jumlah</Label>
-                <span className="text-sm font-mono font-bold">{(mode !== "view" ? computedJumlah : ((selectedItem?.anggaran || 0) + (selectedItem?.perubahanAnggaran || 0))).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span>
+                <Label className="text-xs font-bold">Anggaran</Label>
+                <span className="text-sm font-mono font-bold">{(mode !== "view" ? computedAnggaran : (selectedItem?.anggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -203,30 +178,20 @@ export default function PendapatanDesa() {
                   <Input type="number" value={computedAnggaran || ""} readOnly className="h-8 text-xs bg-muted" />
                 </div>
                 <div>
-                  <Label className="text-xs">Perubahan (Rp)</Label>
-                  <Input type="number" value={form.perubahanAnggaran || ""} onChange={e => setForm({ ...form, perubahanAnggaran: Number(e.target.value) })} className="h-8 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Jumlah (Rp)</Label>
-                  <Input value={computedJumlah.toLocaleString("id-ID", { minimumFractionDigits: 2 })} readOnly className="h-8 text-xs bg-muted" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <Label className="text-xs">Harga Satuan (Rp)</Label>
                   <Input type="number" value={form.hargaSatuan || ""} onChange={e => setForm({ ...form, hargaSatuan: Number(e.target.value) })} className="h-8 text-xs" />
                 </div>
                 <div>
-                  <Label className="text-xs">Sumber Dana</Label>
-                  <Select value={form.sumberDana} onValueChange={v => setForm({ ...form, sumberDana: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Sumber Dana" /></SelectTrigger>
-                    <SelectContent>{sumberDanaData.map(s => <SelectItem key={s.kode} value={s.kode}>{s.nama}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Label className="text-xs">Jumlah Satuan</Label>
+                  <Input value={form.jumlahSatuan} onChange={e => setForm({ ...form, jumlahSatuan: e.target.value })} className="h-8 text-xs" placeholder="cth: 1 Paket / 12 OB" />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Jumlah Satuan</Label>
-                <Input value={form.jumlahSatuan} onChange={e => setForm({ ...form, jumlahSatuan: e.target.value })} className="h-8 text-xs" placeholder="cth: 1 Paket / 12 OB" />
+                <Label className="text-xs">Sumber Dana</Label>
+                <Select value={form.sumberDana} onValueChange={v => setForm({ ...form, sumberDana: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Sumber Dana" /></SelectTrigger>
+                  <SelectContent>{sumberDanaData.map(s => <SelectItem key={s.kode} value={s.kode}>{s.nama}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -241,8 +206,6 @@ export default function PendapatanDesa() {
                     <TableHead className="text-xs font-semibold">No</TableHead>
                     <TableHead className="text-xs font-semibold">Uraian</TableHead>
                     <TableHead className="text-xs font-semibold text-right">Anggaran</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Perubahan</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Jumlah</TableHead>
                     <TableHead className="text-xs font-semibold text-right">Harga Satuan</TableHead>
                     <TableHead className="text-xs font-semibold">Sumber Dana</TableHead>
                   </TableRow>
@@ -252,8 +215,6 @@ export default function PendapatanDesa() {
                     <TableCell className="text-xs">01</TableCell>
                     <TableCell className="text-xs">{selectedItem.uraian || "-"}</TableCell>
                     <TableCell className="text-xs text-right">{selectedItem.anggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-xs text-right">{selectedItem.perubahanAnggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-xs text-right">{(selectedItem.anggaran + selectedItem.perubahanAnggaran).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-xs text-right">{selectedItem.hargaSatuan.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-xs">{sumberDanaData.find(s => s.kode === selectedItem.sumberDana)?.nama || selectedItem.sumberDana}</TableCell>
                   </TableRow>
@@ -266,25 +227,13 @@ export default function PendapatanDesa() {
 
       {/* Action Button Bar */}
       <div className="border-t bg-secondary/30 px-4 py-2 flex items-center gap-2">
-        <Button size="sm" variant={mode === "tambah" ? "default" : "outline"} onClick={handleTambah} disabled={mode !== "view"}>
-          Tambah
-        </Button>
-        <Button size="sm" variant={mode === "ubah" ? "default" : "outline"} onClick={handleUbah} disabled={mode !== "view"}>
-          Ubah
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleHapus} disabled={mode !== "view"} className="text-destructive hover:text-destructive">
-          Hapus
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleBatal} disabled={mode === "view"}>
-          Batal
-        </Button>
-        <Button size="sm" onClick={handleSimpan} disabled={mode === "view"}>
-          Simpan Tanpa Cetak
-        </Button>
+        <Button size="sm" variant={mode === "tambah" ? "default" : "outline"} onClick={handleTambah} disabled={mode !== "view"}>Tambah</Button>
+        <Button size="sm" variant={mode === "ubah" ? "default" : "outline"} onClick={handleUbah} disabled={mode !== "view"}>Ubah</Button>
+        <Button size="sm" variant="outline" onClick={handleHapus} disabled={mode !== "view"} className="text-destructive hover:text-destructive">Hapus</Button>
+        <Button size="sm" variant="outline" onClick={handleBatal} disabled={mode === "view"}>Batal</Button>
+        <Button size="sm" onClick={handleSimpan} disabled={mode === "view"}>Simpan Tanpa Cetak</Button>
         <div className="flex-1" />
-        <Button size="sm" variant="outline" onClick={() => window.history.back()}>
-          Tutup
-        </Button>
+        <Button size="sm" variant="outline" onClick={() => window.history.back()}>Tutup</Button>
       </div>
     </div>
   );
