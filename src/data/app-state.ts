@@ -296,10 +296,11 @@ export function saveState(state: AppState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
 
-  // Coalesce backend pushes (debounce 500ms)
+  // Coalesce backend pushes (debounce 150ms — fast enough to feel "live"
+  // for collaborators, still collapses keystroke bursts into one round-trip)
   pendingState = state;
   if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(flushPush, 500);
+  pushTimer = setTimeout(flushPush, 150);
 }
 
 // Force-flush hook for places that REALLY need the server to be in sync now
