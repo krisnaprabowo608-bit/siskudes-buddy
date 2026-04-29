@@ -8,7 +8,8 @@ export interface PendapatanItem {
   namaRekening: string;
   uraian: string;
   anggaran: number;
-  perubahanAnggaran: number;
+  /** @deprecated PAK dihapus per revisi klien — disimpan opsional untuk backward compat data lama */
+  perubahanAnggaran?: number;
   sumberDana: string;
   jumlahSatuan: string;
   hargaSatuan: number;
@@ -24,7 +25,8 @@ export interface BelanjaItem {
   nomorUrut: string;
   uraian: string;
   anggaran: number;
-  perubahanAnggaran: number;
+  /** @deprecated PAK dihapus per revisi klien */
+  perubahanAnggaran?: number;
   jumlahSatuan: string;
   hargaSatuan: number;
   sumberDana: string;
@@ -37,7 +39,8 @@ export interface PembiayaanItem {
   namaRekening: string;
   uraian: string;
   anggaran: number;
-  perubahanAnggaran: number;
+  /** @deprecated PAK dihapus per revisi klien */
+  perubahanAnggaran?: number;
   jumlahSatuan: string;
   hargaSatuan: number;
   sumberDana: string;
@@ -105,6 +108,12 @@ export interface SPPRincian {
   kodeRekening: string;
   namaRekening: string;
   nilai: number;
+  /** Bridge ke baris Belanja (No. Ref) — wajib untuk SPP Panjar/Definitif baru */
+  belanjaId?: string;
+  noRef?: string;
+  kodeKegiatan?: string;
+  kodeBidang?: string;
+  namaKegiatan?: string;
 }
 
 export interface BuktiTransaksi {
