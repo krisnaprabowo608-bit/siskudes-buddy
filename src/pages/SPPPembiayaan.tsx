@@ -222,11 +222,28 @@ export default function SPPPembiayaan() {
               <div className="p-4 space-y-2 bg-muted/10">
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Rincian</Label>
                   <Select value={rincianMode !== "view" ? rincianForm.kodeRekening : selectedRincian?.kodeRekening || ""} disabled={rincianMode === "view"}
-                    onValueChange={v => { const r = rekeningPembiayaan.find(x => x.kode === v); setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: r?.uraian || "" }); }}>
-                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Rekening Pembiayaan" /></SelectTrigger>
-                    <SelectContent>{rekeningPembiayaan.map(r => <SelectItem key={r.kode} value={r.kode}>{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
+                    onValueChange={v => {
+                      const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+                      const o = opts.find(x => x.kodeRekening === v);
+                      setRincianForm({ ...rincianForm, kodeRekening: v, namaRekening: o?.namaRekening || "" });
+                    }}>
+                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Pembiayaan Pengeluaran (yang dianggarkan)" /></SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const opts = getPembiayaanPengeluaranOptions(loadState(), rincianMode === "edit" ? selectedRincian?.id : undefined);
+                        return opts.length === 0
+                          ? <SelectItem value="__empty" disabled>Belum ada Pembiayaan Pengeluaran</SelectItem>
+                          : opts.map(o => <SelectItem key={o.pembiayaanId} value={o.kodeRekening}>{o.kodeRekening} — {o.namaRekening} (Sisa: {fmt(o.sisa)})</SelectItem>);
+                      })()}
+                    </SelectContent>
                   </Select>
                 </div>
+                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nama Rincian</Label>
+                  <Input className="h-7 text-[11px]" readOnly value={rincianMode !== "view" ? rincianForm.namaRekening : selectedRincian?.namaRekening || ""} /></div>
+                <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nilai</Label>
+                  <Input type="number" className="h-7 text-[11px] text-right" disabled={rincianMode === "view"}
+                    value={rincianMode !== "view" ? rincianForm.nilai || "" : selectedRincian?.nilai || ""} onChange={e => setRincianForm({ ...rincianForm, nilai: Number(e.target.value) })} /></div>
+              </div>
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nama Rincian</Label>
                   <Input className="h-7 text-[11px]" readOnly value={rincianMode !== "view" ? rincianForm.namaRekening : selectedRincian?.namaRekening || ""} /></div>
                 <div className="flex items-center gap-2"><Label className="text-[11px] w-24 shrink-0">Nilai</Label>
