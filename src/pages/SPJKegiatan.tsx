@@ -151,28 +151,57 @@ export default function SPJKegiatan() {
               </div>
 
               {selectedSPP && selectedSPP.rincian.length > 0 && (
-                <div className="flex-shrink-0 max-h-[140px] overflow-auto border-b border-border">
-                  <div className="px-3 py-1 bg-secondary/30 text-[10px] font-semibold sticky top-0 z-20">Rincian Belanja Terkait</div>
+                <div className="flex-shrink-0 max-h-[140px] sm:max-h-[160px] overflow-auto border-b border-border relative">
+                  <div className="px-3 py-1 bg-secondary/60 backdrop-blur-sm text-[10px] font-semibold sticky top-0 z-30 border-b border-border shadow-sm">
+                    Rincian Belanja Terkait
+                  </div>
                   <Table>
-                    <TableHeader className="sticky top-[22px] z-10 bg-secondary/40 [&_tr]:border-b">
-                      <TableRow className="bg-secondary/40 text-[11px] hover:bg-secondary/40">
-                        <TableHead className="font-semibold bg-secondary/40">No.Ref</TableHead>
-                        <TableHead className="font-semibold bg-secondary/40">Kode Rincian</TableHead>
-                        <TableHead className="font-semibold bg-secondary/40">Nama Rincian</TableHead>
-                        <TableHead className="font-semibold bg-secondary/40">Kegiatan</TableHead>
-                        <TableHead className="font-semibold bg-secondary/40 text-right">Nilai</TableHead>
+                    <TableHeader className="sticky top-[24px] z-20 [&_tr]:border-b">
+                      <TableRow className="bg-secondary/70 backdrop-blur-sm text-[11px] hover:bg-secondary/70">
+                        <TableHead className="font-semibold bg-secondary/70 whitespace-nowrap">No.Ref</TableHead>
+                        <TableHead className="font-semibold bg-secondary/70 whitespace-nowrap">Kode Rincian</TableHead>
+                        <TableHead className="font-semibold bg-secondary/70">Nama Rincian</TableHead>
+                        <TableHead className="font-semibold bg-secondary/70">Kegiatan</TableHead>
+                        <TableHead className="font-semibold bg-secondary/70 text-right whitespace-nowrap">Nilai</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedSPP.rincian.map(r => (
-                        <TableRow key={r.id} className="text-[11px]">
-                          <TableCell className="font-mono">{r.noRef || "-"}</TableCell>
-                          <TableCell className="font-mono">{r.kodeRekening || "-"}</TableCell>
-                          <TableCell>{r.namaRekening || r.kodeRekening || r.kodeKegiatan || "-"}</TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground">{r.namaKegiatan || r.kodeKegiatan || "-"}</TableCell>
-                          <TableCell className="text-right font-medium">{fmt(r.nilai)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedSPP.rincian.map(r => {
+                        // Sumber data Nama Rincian: utama = namaRekening, fallback = kodeRekening, lalu kodeKegiatan
+                        const namaSource: "primary" | "kode" | "kegiatan" | "none" =
+                          r.namaRekening ? "primary" : r.kodeRekening ? "kode" : r.kodeKegiatan ? "kegiatan" : "none";
+                        const namaValue = r.namaRekening || r.kodeRekening || r.kodeKegiatan || "-";
+                        const sourceMeta = {
+                          primary: { label: "✓", title: "Diambil dari namaRekening (utama)", cls: "bg-primary/15 text-primary" },
+                          kode: { label: "K", title: "Fallback ke kodeRekening (namaRekening kosong)", cls: "bg-amber-500/20 text-amber-700 dark:text-amber-400" },
+                          kegiatan: { label: "G", title: "Fallback ke kodeKegiatan (rekening kosong)", cls: "bg-orange-500/20 text-orange-700 dark:text-orange-400" },
+                          none: { label: "—", title: "Tidak ada data", cls: "bg-muted text-muted-foreground" },
+                        }[namaSource];
+                        const kegiatanFull = [r.kodeKegiatan, r.namaKegiatan].filter(Boolean).join(" — ") || "-";
+                        return (
+                          <TableRow key={r.id} className="text-[11px]">
+                            <TableCell className="font-mono">{r.noRef || "-"}</TableCell>
+                            <TableCell className="font-mono">{r.kodeRekening || "-"}</TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  title={sourceMeta.title}
+                                  className={`inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold leading-none ${sourceMeta.cls}`}
+                                >
+                                  {sourceMeta.label}
+                                </span>
+                                <span className="truncate max-w-[180px]" title={namaValue}>{namaValue}</span>
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-[10px] text-muted-foreground">
+                              <span className="truncate max-w-[200px] inline-block align-middle" title={kegiatanFull}>
+                                {kegiatanFull}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-medium whitespace-nowrap">{fmt(r.nilai)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
