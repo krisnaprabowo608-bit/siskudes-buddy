@@ -21,14 +21,13 @@ export default function PembiayaanDesa() {
   const [mode, setMode] = useState<Mode>("view");
 
   const rekeningPembiayaan = getRekeningDetail("pembiayaan");
-  // Filter rekening by tab: 6.1.x = penerimaan, 6.2.x = pengeluaran
   const filteredRekening = rekeningPembiayaan.filter(r =>
     activeTab === "penerimaan" ? r.kode.startsWith("6.1") : r.kode.startsWith("6.2")
   );
 
   const emptyForm: Omit<PembiayaanItem, "id"> = {
     jenis: "penerimaan", kodeRekening: "", namaRekening: "",
-    uraian: "", anggaran: 0, perubahanAnggaran: 0,
+    uraian: "", anggaran: 0,
     jumlahSatuan: "", hargaSatuan: 0, sumberDana: "",
   };
   const [form, setForm] = useState(emptyForm);
@@ -47,11 +46,7 @@ export default function PembiayaanDesa() {
   const totalPenerimaan = items.filter(i => i.jenis === "penerimaan").reduce((s, i) => s + i.anggaran, 0);
   const totalPengeluaran = items.filter(i => i.jenis === "pengeluaran").reduce((s, i) => s + i.anggaran, 0);
 
-  const handleTambah = () => {
-    setMode("tambah");
-    setSelectedId(null);
-    setForm({ ...emptyForm, jenis: activeTab });
-  };
+  const handleTambah = () => { setMode("tambah"); setSelectedId(null); setForm({ ...emptyForm, jenis: activeTab }); };
 
   const handleUbah = () => {
     if (!selectedItem) return toast.error("Pilih data yang akan diubah");
@@ -62,7 +57,6 @@ export default function PembiayaanDesa() {
       namaRekening: selectedItem.namaRekening,
       uraian: selectedItem.uraian,
       anggaran: selectedItem.anggaran,
-      perubahanAnggaran: selectedItem.perubahanAnggaran,
       jumlahSatuan: selectedItem.jumlahSatuan,
       hargaSatuan: selectedItem.hargaSatuan,
       sumberDana: selectedItem.sumberDana,
@@ -88,7 +82,7 @@ export default function PembiayaanDesa() {
       save(items.map(i => i.id === selectedId ? { ...i, ...form, anggaran } : i));
       toast.success("Data diperbarui");
     } else {
-      const newItem = { id: crypto.randomUUID(), ...form, jenis: activeTab, anggaran };
+      const newItem: PembiayaanItem = { id: crypto.randomUUID(), ...form, jenis: activeTab, anggaran };
       save([...items, newItem]);
       setSelectedId(newItem.id);
       toast.success("Data ditambahkan");
@@ -129,12 +123,11 @@ export default function PembiayaanDesa() {
                     <TableHead className="text-xs font-semibold">Kd_Rincian</TableHead>
                     <TableHead className="text-xs font-semibold">Nama_Rincian</TableHead>
                     <TableHead className="text-xs font-semibold text-right">Anggaran</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Anggaran PAK</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6 text-sm">Belum ada data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6 text-sm">Belum ada data</TableCell></TableRow>
                   ) : filtered.map(item => (
                     <TableRow
                       key={item.id}
@@ -144,7 +137,6 @@ export default function PembiayaanDesa() {
                       <TableCell className="font-mono text-xs">{item.kodeRekening}</TableCell>
                       <TableCell className="text-sm">{item.namaRekening}</TableCell>
                       <TableCell className="text-sm text-right font-medium">{item.anggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-sm text-right">{item.perubahanAnggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -174,9 +166,7 @@ export default function PembiayaanDesa() {
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between"><Label className="text-xs font-semibold">Anggaran</Label><span className="text-sm font-mono">{(mode !== "view" ? computedAnggaran : (selectedItem?.anggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span></div>
-              <div className="flex justify-between"><Label className="text-xs font-semibold">Perubahan</Label><span className="text-sm font-mono">{(mode !== "view" ? form.perubahanAnggaran : (selectedItem?.perubahanAnggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span></div>
-              <div className="flex justify-between border-t pt-1"><Label className="text-xs font-bold">Jumlah</Label><span className="text-sm font-mono font-bold">{(mode !== "view" ? (computedAnggaran + form.perubahanAnggaran) : ((selectedItem?.anggaran || 0) + (selectedItem?.perubahanAnggaran || 0))).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span></div>
+              <div className="flex justify-between border-t pt-1"><Label className="text-xs font-bold">Anggaran</Label><span className="text-sm font-mono font-bold">{(mode !== "view" ? computedAnggaran : (selectedItem?.anggaran || 0)).toLocaleString("id-ID", { minimumFractionDigits: 2 })}</span></div>
             </div>
           </div>
 
@@ -189,18 +179,15 @@ export default function PembiayaanDesa() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div><Label className="text-xs">Anggaran (Rp)</Label><Input value={computedAnggaran || ""} readOnly className="h-8 text-xs bg-muted" /></div>
-                <div><Label className="text-xs">Perubahan (Rp)</Label><Input type="number" value={form.perubahanAnggaran || ""} onChange={e => setForm({ ...form, perubahanAnggaran: Number(e.target.value) })} className="h-8 text-xs" /></div>
                 <div><Label className="text-xs">Harga Satuan (Rp)</Label><Input type="number" value={form.hargaSatuan || ""} onChange={e => setForm({ ...form, hargaSatuan: Number(e.target.value) })} className="h-8 text-xs" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs">Jumlah Satuan</Label><Input value={form.jumlahSatuan} onChange={e => setForm({ ...form, jumlahSatuan: e.target.value })} className="h-8 text-xs" /></div>
-                <div>
-                  <Label className="text-xs">Sumber Dana</Label>
-                  <Select value={form.sumberDana} onValueChange={v => setForm({ ...form, sumberDana: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                    <SelectContent>{sumberDanaData.map(s => <SelectItem key={s.kode} value={s.kode}>{s.nama}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Sumber Dana</Label>
+                <Select value={form.sumberDana} onValueChange={v => setForm({ ...form, sumberDana: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                  <SelectContent>{sumberDanaData.map(s => <SelectItem key={s.kode} value={s.kode}>{s.nama}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -214,7 +201,6 @@ export default function PembiayaanDesa() {
                     <TableHead className="text-xs">No</TableHead>
                     <TableHead className="text-xs">Uraian</TableHead>
                     <TableHead className="text-xs text-right">Anggaran</TableHead>
-                    <TableHead className="text-xs text-right">Perubahan</TableHead>
                     <TableHead className="text-xs text-right">Harga Satuan</TableHead>
                     <TableHead className="text-xs">Sumber Dana</TableHead>
                   </TableRow>
@@ -224,7 +210,6 @@ export default function PembiayaanDesa() {
                     <TableCell className="text-xs">01</TableCell>
                     <TableCell className="text-xs">{selectedItem.uraian || "-"}</TableCell>
                     <TableCell className="text-xs text-right">{selectedItem.anggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-xs text-right">{selectedItem.perubahanAnggaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-xs text-right">{selectedItem.hargaSatuan.toLocaleString("id-ID", { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-xs">{sumberDanaData.find(s => s.kode === selectedItem.sumberDana)?.nama || selectedItem.sumberDana}</TableCell>
                   </TableRow>

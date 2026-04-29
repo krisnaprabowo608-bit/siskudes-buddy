@@ -583,17 +583,159 @@ export function cekSaldoKas(state: AppState): number {
 }
 
 // ============ PAGU ANGGARAN PER KEGIATAN ============
+// Per revisi klien: pagu kegiatan = SUM(belanja[kodeKegiatan].anggaran).
+// Kegiatan APBDesa dihapus, jadi sumber pagu adalah Belanja itu sendiri.
 export function getPaguKegiatan(state: AppState, kodeKegiatan: string): number {
-  const keg = (state.kegiatanAnggaran || []).find(k => k.kodeKegiatan === kodeKegiatan);
-  return keg ? keg.paguAnggaran : 0;
+  return state.belanja
+    .filter(b => b.kodeKegiatan === kodeKegiatan)
+    .reduce((s, b) => s + (b.anggaran || 0), 0);
 }
 
 export function getTotalBelanjaKegiatan(state: AppState, kodeKegiatan: string): number {
   return state.belanja
     .filter(b => b.kodeKegiatan === kodeKegiatan)
-    .reduce((s, b) => s + b.anggaran, 0);
+    .reduce((s, b) => s + (b.anggaran || 0), 0);
 }
 
 export function cekSisaPaguKegiatan(state: AppState, kodeKegiatan: string): number {
   return getPaguKegiatan(state, kodeKegiatan) - getTotalBelanjaKegiatan(state, kodeKegiatan);
+}
+
+// ============ BRIDGE BELANJA → SPP (per No. Ref) ============
+/** Total nilai SPP rincian (panjar+definitif) yang merujuk baris belanja tertentu. */
+export function getTerpakaiBelanjaItem(state: AppState, belanjaId: string, excludeRincianId?: string): number {
+  let total = 0;
+  state.spp
+    .filter(s => s.jenis === 'panjar' || s.jenis === 'definitif')
+    .forEach(spp => {
+      spp.rincian.forEach(r => {
+        if (r.belanjaId === belanjaId && r.id !== excludeRincianId) {
+          total += r.nilai || 0;
+        }
+      });
+    });
+  return total;
+}
+
+/** Sisa anggaran baris belanja = anggaran − total terpakai SPP. */
+export function getSisaBelanjaItem(state: AppState, belanjaId: string, excludeRincianId?: string): number {
+  const b = state.belanja.find(x => x.id === belanjaId);
+  if (!b) return 0;
+  return (b.anggaran || 0) - getTerpakaiBelanjaItem(state, belanjaId, excludeRincianId);
+}
+
+export interface BelanjaOption {
+  belanjaId: string;
+  noRef: string;
+  kodeRekening: string;
+  namaRekening: string;
+  uraian: string;
+  anggaran: number;
+  terpakai: number;
+  sisa: number;
+}
+
+/** Daftar baris Belanja untuk dipilih sebagai rincian SPP. */
+export function getBelanjaOptionsForKegiatan(
+  state: AppState,
+  kodeKegiatan: string,
+  excludeRincianId?: string,
+): BelanjaOption[] {
+  return state.belanja
+    .filter(b => b.kodeKegiatan === kodeKegiatan)
+    .map(b => {
+      const terpakai = getTerpakaiBelanjaItem(state, b.id, excludeRincianId);
+      return {
+        belanjaId: b.id,
+        noRef: b.nomorUrut || '',
+        kodeRekening: b.kodeRekening,
+        namaRekening: b.namaRekening,
+        uraian: b.uraian,
+        anggaran: b.anggaran || 0,
+        terpakai,
+        sisa: (b.anggaran || 0) - terpakai,
+      };
+    });
+}
+
+// ============ BRIDGE PEMBIAYAAN → SPP PEMBIAYAAN ============
+export function getTerpakaiPembiayaanRekening(state: AppState, kodeRekening: string, excludeRincianId?: string): number {
+  let total = 0;
+  state.spp
+    .filter(s => s.jenis === 'pembiayaan')
+    .forEach(spp => {
+      spp.rincian.forEach(r => {
+        if (r.kodeRekening === kodeRekening && r.id !== excludeRincianId) {
+          total += r.nilai || 0;
+        }
+      });
+    });
+  return total;
+}
+
+export interface PembiayaanOption {
+  pembiayaanId: string;
+  kodeRekening: string;
+  namaRekening: string;
+  anggaran: number;
+  terpakai: number;
+  sisa: number;
+}
+
+export function getPembiayaanPengeluaranOptions(state: AppState, excludeRincianId?: string): PembiayaanOption[] {
+  return state.pembiayaan
+    .filter(p => p.jenis === 'pengeluaran')
+    .map(p => {
+      const terpakai = getTerpakaiPembiayaanRekening(state, p.kodeRekening, excludeRincianId);
+      return {
+        pembiayaanId: p.id,
+        kodeRekening: p.kodeRekening,
+        namaRekening: p.namaRekening,
+        anggaran: p.anggaran || 0,
+        terpakai,
+        sisa: (p.anggaran || 0) - terpakai,
+      };
+    });
+}
+
+// ============ BRIDGE PENDAPATAN → PENERIMAAN ============
+export interface PendapatanOption {
+  pendapatanId: string;
+  kodeRekening: string;
+  namaRekening: string;
+  uraian: string;
+  sumberDana: string;
+  anggaran: number;
+  terealisasi: number;
+  sisa: number;
+}
+
+export function getTerealisasiPendapatan(state: AppState, kodeRekening: string): number {
+  let total = 0;
+  state.penerimaan.forEach(p => {
+    if (p.rincian && p.rincian.length > 0) {
+      total += p.rincian
+        .filter(r => r.kodeRekening === kodeRekening)
+        .reduce((s, r) => s + (r.nilai || 0), 0);
+    } else if (p.kodeRekening === kodeRekening) {
+      total += p.jumlah || 0;
+    }
+  });
+  return total;
+}
+
+export function getPendapatanOptions(state: AppState): PendapatanOption[] {
+  return state.pendapatan.map(p => {
+    const terealisasi = getTerealisasiPendapatan(state, p.kodeRekening);
+    return {
+      pendapatanId: p.id,
+      kodeRekening: p.kodeRekening,
+      namaRekening: p.namaRekening,
+      uraian: p.uraian,
+      sumberDana: p.sumberDana,
+      anggaran: p.anggaran || 0,
+      terealisasi,
+      sisa: (p.anggaran || 0) - terealisasi,
+    };
+  });
 }

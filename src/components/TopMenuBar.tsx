@@ -31,8 +31,6 @@ const menuStructure: MenuItem[] = [
   {
     label: "Penganggaran",
     children: [
-      { label: "Kegiatan APBDesa", path: "/penganggaran" },
-      { label: "separator", separator: true },
       { label: "Pendapatan Desa", path: "/penganggaran/pendapatan" },
       { label: "Belanja Desa", path: "/penganggaran/belanja" },
       { label: "Pembiayaan Desa", path: "/penganggaran/pembiayaan" },

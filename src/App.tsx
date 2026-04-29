@@ -11,7 +11,7 @@ import ParameterBidangKegiatan from "@/pages/ParameterBidangKegiatan";
 import ParameterSumberDana from "@/pages/ParameterSumberDana";
 import ParameterRekening from "@/pages/ParameterRekening";
 import ParameterOutputKegiatan from "@/pages/ParameterOutputKegiatan";
-import PenganggaranAPBDesa from "@/pages/PenganggaranAPBDesa";
+
 import DetailKegiatan from "@/pages/DetailKegiatan";
 import PendapatanDesa from "@/pages/PendapatanDesa";
 import BelanjaDesa from "@/pages/BelanjaDesa";
@@ -64,7 +64,7 @@ const App = () => (
             <Route path="/parameter/sumber-dana" element={<ParameterSumberDana />} />
             <Route path="/parameter/rekening" element={<ParameterRekening />} />
             <Route path="/parameter/output-kegiatan" element={<ParameterOutputKegiatan />} />
-            <Route path="/penganggaran" element={<PenganggaranAPBDesa />} />
+            
             <Route path="/penganggaran/pendapatan" element={<PendapatanDesa />} />
             <Route path="/penganggaran/belanja" element={<BelanjaDesa />} />
             <Route path="/penganggaran/pembiayaan" element={<PembiayaanDesa />} />
