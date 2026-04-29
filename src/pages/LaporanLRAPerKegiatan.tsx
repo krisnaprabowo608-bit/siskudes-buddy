@@ -99,7 +99,7 @@ export default function LaporanLRAPerKegiatan() {
               {Array.from(bidangGroups.entries()).map(([bidangKode, kegiatanList]) => {
                 const bidang = bidangKegiatanData.find(b => b.kode === bidangKode);
                 const bidangBelanja = state.belanja.filter(b => b.kodeBidang === bidangKode);
-                const totalBidangAnggaran = bidangBelanja.reduce((s, b) => s + b.anggaran + b.perubahanAnggaran, 0);
+                const totalBidangAnggaran = bidangBelanja.reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0), 0);
                 const totalBidangRealisasi = bidangBelanja.reduce((s, b) => s + (realisasiPerRekening.get(b.kodeRekening) || 0), 0);
                 
                 return (
@@ -119,9 +119,9 @@ export default function LaporanLRAPerKegiatan() {
                           <tr className="font-medium">
                             <td className="py-1 px-2 border border-gray-300 pl-6">{kegKode}</td>
                             <td className="py-1 px-2 border border-gray-300">{kegiatan?.nama}</td>
-                            <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + b.anggaran + b.perubahanAnggaran, 0))}</td>
+                            <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0), 0))}</td>
                             <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + (realisasiPerRekening.get(b.kodeRekening) || 0), 0))}</td>
-                            <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + b.anggaran + b.perubahanAnggaran - (realisasiPerRekening.get(b.kodeRekening) || 0), 0))}</td>
+                            <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(items.reduce((s, b) => s + (b.anggaran || 0) + (b.perubahanAnggaran || 0) - (realisasiPerRekening.get(b.kodeRekening) || 0), 0))}</td>
                           </tr>
                           {items.map(b => {
                             const real = realisasiPerRekening.get(b.kodeRekening) || 0;
@@ -129,9 +129,9 @@ export default function LaporanLRAPerKegiatan() {
                               <tr key={b.id}>
                                 <td className="py-1 px-2 border border-gray-300 pl-10">{kegKode} {b.kodeRekening}</td>
                                 <td className="py-1 px-2 border border-gray-300 pl-4">{b.namaRekening}</td>
-                                <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.anggaran + b.perubahanAnggaran)}</td>
+                                <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah((b.anggaran || 0) + (b.perubahanAnggaran || 0))}</td>
                                 <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(real)}</td>
-                                <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah(b.anggaran + b.perubahanAnggaran - real)}</td>
+                                <td className="py-1 px-2 text-right border border-gray-300">{formatRupiah((b.anggaran || 0) + (b.perubahanAnggaran || 0) - real)}</td>
                               </tr>
                             );
                           })}
