@@ -288,7 +288,7 @@ export default function SPPPanjar() {
                       <TableRow key={r.id}
                         className={`cursor-pointer text-[11px] ${selectedRincian?.id === r.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
                         onClick={() => setSelectedRincian(r)}
-                        onDoubleClick={() => { setSelectedRincian(r); setActiveTab("bukti"); }}>
+                        onClick={() => setSelectedRincian(r)}>
                         <TableCell className="font-mono">{r.noRef || "-"}</TableCell>
                         <TableCell className="font-mono">{r.kodeRekening}</TableCell>
                         <TableCell>{r.namaRekening}</TableCell>
