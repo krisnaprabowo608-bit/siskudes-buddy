@@ -14,7 +14,7 @@ import { Plus, Pencil, Trash2, X, Save, Printer, DoorOpen } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "view" | "add" | "edit";
-type ActiveTab = "spp" | "rincian" | "bukti" | "potongan";
+type ActiveTab = "spp" | "rincian";
 
 export default function SPPPanjar() {
   const [items, setItems] = useState<SPPItem[]>([]);
@@ -83,7 +83,6 @@ export default function SPPPanjar() {
     if (!selected) return;
     const rTotal = selected.rincian.reduce((s, r) => s + r.nilai, 0);
     if (!selected.isFinal && rTotal === 0) { toast.error("Tambahkan rincian terlebih dahulu"); return; }
-    if (!selected.isFinal && selected.buktiTransaksi.length === 0) { toast.error("Tambahkan bukti transaksi terlebih dahulu"); return; }
     const updated = items.map(i => i.id === selected.id ? { ...i, isFinal: !i.isFinal, jumlah: rTotal || i.jumlah } : i);
     save(updated);
     setSelected(updated.find(i => i.id === selected.id) || null);
@@ -182,16 +181,15 @@ export default function SPPPanjar() {
       <div className="flex-1 p-4 flex gap-0">
         {/* Vertical Tabs */}
         <div className="flex flex-col border border-border rounded-l-md overflow-hidden bg-muted/30">
-          {(["spp", "rincian", "bukti", "potongan"] as ActiveTab[]).map(tab => (
+          {(["spp", "rincian"] as ActiveTab[]).map(tab => (
             <button key={tab}
               onClick={() => {
                 if (tab !== "spp" && !selected) { toast.error("Pilih SPP terlebih dahulu"); return; }
-                if (tab === "potongan" && !selectedBukti) { toast.error("Pilih bukti transaksi terlebih dahulu"); return; }
                 setActiveTab(tab);
               }}
               className={`px-3 py-5 text-[10px] font-semibold border-b border-border transition-colors ${activeTab === tab ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
               style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>
-              {tab === "spp" ? "SPP" : tab === "rincian" ? "Rincian SPP" : tab === "bukti" ? "Bukti Pengeluaran" : "Potongan"}
+              {tab === "spp" ? "SPP" : "Rincian SPP"}
             </button>
           ))}
         </div>
@@ -345,108 +343,6 @@ export default function SPPPanjar() {
             </div>
           )}
 
-          {/* ===== TAB BUKTI PENGELUARAN ===== */}
-          {activeTab === "bukti" && selected && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-auto border-b border-border">
-                <Table>
-                  <TableHeader><TableRow className="bg-secondary/50 text-[11px]">
-                    <TableHead>Tgl_Bukti</TableHead><TableHead>No_Bukti</TableHead><TableHead>Keterangan</TableHead><TableHead className="text-right">Nilai</TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {selected.buktiTransaksi.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">Belum ada bukti</TableCell></TableRow>
-                    : selected.buktiTransaksi.map(b => (
-                      <TableRow key={b.id}
-                        className={`cursor-pointer text-[11px] ${selectedBukti?.id === b.id ? "bg-primary/10" : "hover:bg-muted/50"}`}
-                        onClick={() => { setSelectedBukti(b); setBuktiMode("view"); }}
-                        onDoubleClick={() => { setSelectedBukti(b); setBuktiMode("view"); setActiveTab("potongan"); }}>
-                        <TableCell>{b.tanggal}</TableCell><TableCell className="font-mono">{b.noBukti}</TableCell><TableCell className="max-w-[180px] truncate">{b.keterangan}</TableCell><TableCell className="text-right font-medium">{fmt(b.jumlah)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="p-4 bg-muted/10">
-                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">No Bukti</Label>
-                      <Input className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.noBukti : selectedBukti?.noBukti || ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, noBukti: e.target.value })} /></div>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">Tgl Bukti</Label>
-                      <Input type="date" className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.tanggal : selectedBukti?.tanggal || ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, tanggal: e.target.value })} /></div>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">Uraian</Label>
-                      <Input className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.keterangan : selectedBukti?.keterangan || ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, keterangan: e.target.value })} /></div>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">Nilai</Label>
-                      <Input type="number" className="h-7 text-[11px] text-right" disabled={buktiMode === "view"} value={buktiMode !== "view" ? buktiForm.jumlah || "" : selectedBukti?.jumlah || ""} onChange={e => setBuktiForm({ ...buktiForm, jumlah: Number(e.target.value) })} /></div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold text-muted-foreground mb-1">Penerima</p>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">Nama</Label>
-                      <Input className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.nama : selectedBukti?.nama || ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, nama: e.target.value })} /></div>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">Alamat</Label>
-                      <Input className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.alamat : selectedBukti?.alamat || ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, alamat: e.target.value })} /></div>
-                    <div className="flex items-center gap-2"><Label className="text-[11px] w-20 shrink-0">NPWP</Label>
-                      <Input className="h-7 text-[11px]" value={buktiMode !== "view" ? buktiForm.npwp : ""} readOnly={buktiMode === "view"} onChange={e => setBuktiForm({ ...buktiForm, npwp: e.target.value })} /></div>
-                  </div>
-                </div>
-              </div>
-              <ActionBar
-                onTambah={() => { if (selected.isFinal) { toast.error("SPP sudah Final"); return; } setBuktiMode("add"); setSelectedBukti(null); setBuktiForm({ tanggal: new Date().toISOString().slice(0, 10), noBukti: generateNoBukti(), keterangan: "", jumlah: 0, penerima: "", nama: "", alamat: "", kodeBank: "", noRekBank: "", namaBank: "", npwp: "" }); }}
-                onUbah={() => { if (!selectedBukti) { toast.error("Pilih bukti"); return; } setBuktiMode("edit"); setBuktiForm({ tanggal: selectedBukti.tanggal, noBukti: selectedBukti.noBukti, keterangan: selectedBukti.keterangan, jumlah: selectedBukti.jumlah, penerima: selectedBukti.penerima, nama: selectedBukti.nama, alamat: selectedBukti.alamat, kodeBank: "", noRekBank: "", namaBank: "", npwp: "" }); }}
-                onHapus={() => { if (!selectedBukti) return; if (selected.isFinal) { toast.error("SPP sudah Final"); return; } const upd = items.map(i => i.id === selected.id ? { ...i, buktiTransaksi: i.buktiTransaksi.filter(b => b.id !== selectedBukti.id) } : i); save(upd); setSelected(upd.find(i => i.id === selected.id) || null); setSelectedBukti(null); toast.success("Bukti dihapus"); }}
-                onBatal={() => { setBuktiMode("view"); setSelectedBukti(null); }}
-                onSimpan={handleSimpanBukti}
-                onTutup={() => setActiveTab("rincian")}
-              />
-            </div>
-          )}
-
-          {/* ===== TAB POTONGAN PAJAK ===== */}
-          {activeTab === "potongan" && selected && selectedBukti && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="px-4 py-2 border-b border-border bg-secondary/20 text-[11px]">
-                <span className="font-semibold">No Bukti:</span> <span className="font-mono">{selectedBukti.noBukti}</span>
-                <span className="ml-4 font-semibold">Rp {fmt(selectedBukti.jumlah)}</span>
-                {selected.rincian.length > 0 && <><br /><span className="font-semibold">Kd Rekening:</span> <span>{selected.rincian[0].kodeRekening} — {selected.rincian[0].namaRekening}</span></>}
-              </div>
-              <div className="flex-1 overflow-auto border-b border-border">
-                <Table>
-                  <TableHeader><TableRow className="bg-secondary/50 text-[11px]">
-                    <TableHead>Kd_Rincian</TableHead><TableHead>Nama_Rincian</TableHead><TableHead className="text-right">Nilai</TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {selectedBukti.potonganPajak.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8 text-xs">Belum ada potongan</TableCell></TableRow>
-                    : selectedBukti.potonganPajak.map((p, idx) => (
-                      <TableRow key={idx} className={`cursor-pointer text-[11px] ${selectedPot === p ? "bg-primary/10" : "hover:bg-muted/50"}`} onClick={() => setSelectedPot(p)}>
-                        <TableCell className="font-mono">{p.kodeRekening}</TableCell><TableCell>{p.namaRekening}</TableCell><TableCell className="text-right font-medium">{fmt(p.nilai)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="p-4 space-y-2 bg-muted/10">
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-28 shrink-0">Kode Pot</Label>
-                  <Select value={potMode !== "view" ? potForm.kodeRekening : selectedPot?.kodeRekening || ""} disabled={potMode === "view"}
-                    onValueChange={v => { const r = rekeningPajak.find(x => x.kode === v); setPotForm({ ...potForm, kodeRekening: v, namaRekening: r?.uraian || "" }); }}>
-                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Pilih Potongan" /></SelectTrigger>
-                    <SelectContent>{rekeningPajak.map(r => <SelectItem key={r.kode} value={r.kode}>{r.kode} — {r.uraian}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-28 shrink-0">Nama Potongan</Label>
-                  <Input className="h-7 text-[11px]" readOnly value={potMode !== "view" ? potForm.namaRekening : selectedPot?.namaRekening || ""} /></div>
-                <div className="flex items-center gap-2"><Label className="text-[11px] w-28 shrink-0">Nilai</Label>
-                  <Input type="number" className="h-7 text-[11px] text-right" disabled={potMode === "view"}
-                    value={potMode !== "view" ? potForm.nilai || "" : selectedPot?.nilai || ""} onChange={e => setPotForm({ ...potForm, nilai: Number(e.target.value) })} /></div>
-              </div>
-              <ActionBar
-                onTambah={() => { if (selected.isFinal) { toast.error("SPP sudah Final"); return; } setPotMode("add"); setSelectedPot(null); setPotForm({ kodeRekening: "", namaRekening: "", nilai: 0 }); }}
-                onUbah={() => { if (!selectedPot) { toast.error("Pilih potongan"); return; } setPotMode("edit"); setPotForm({ ...selectedPot }); }}
-                onHapus={() => { if (!selectedPot) return; const updPot = selectedBukti.potonganPajak.filter(p => p !== selectedPot); const updBukti = selected.buktiTransaksi.map(b => b.id === selectedBukti.id ? { ...b, potonganPajak: updPot } : b); const upd = items.map(i => i.id === selected.id ? { ...i, buktiTransaksi: updBukti } : i); save(upd); const ns = upd.find(i => i.id === selected.id) || null; setSelected(ns); setSelectedBukti(ns?.buktiTransaksi.find(b => b.id === selectedBukti.id) || null); setSelectedPot(null); toast.success("Potongan dihapus"); }}
-                onBatal={() => { setPotMode("view"); setSelectedPot(null); }}
-                onSimpan={handleSimpanPot}
-                onTutup={() => setActiveTab("bukti")}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
