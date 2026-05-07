@@ -105,29 +105,19 @@ export function useGroupRealtimeSync() {
             if (!row || row.session_id === sessionId) return;
             if (!row.form_data || typeof row.form_data !== "object") return;
 
-            // Conflict warning: someone else wrote within 2s of my last write
-            const myLast = Number(localStorage.getItem(LAST_LOCAL_WRITE_KEY) || 0);
-            if (myLast && Date.now() - myLast < 2000) {
-              toast.warning(
-                "Anggota lain juga mengubah data — versi terbaru akan disinkronkan.",
-                { duration: 2500 },
-              );
-            }
-
+            // With merge engine, concurrent writes no longer overwrite — no conflict warning needed.
             latestPayload = row.form_data as Record<string, unknown>;
 
-            // Smart debounce: collapse bursts within 200ms into one apply
-            // (fast enough so collaborators see updates near-instantly,
-            // still avoids reload-storm when many rows arrive in sequence)
+            // Tight debounce: collapse bursts within 80ms into one apply
             if (pendingApplyTimer) clearTimeout(pendingApplyTimer);
             pendingApplyTimer = setTimeout(() => {
               if (!latestPayload) return;
               const changed = applyIncomingState(latestPayload);
               latestPayload = null;
               if (changed) {
-                toast.info("Pekerjaan kelompok diperbarui", { duration: 1000 });
+                toast.info("Data kelompok diperbarui", { duration: 800 });
               }
-            }, 200);
+            }, 80);
           },
         )
         .subscribe();
