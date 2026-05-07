@@ -22,14 +22,17 @@ export default function PenyetoranPajak() {
 
   const pajakRekening = rekeningData.filter(r => r.kode.startsWith("7.1"));
 
-  const allBuktiPotong = state.spp
-    .flatMap(s => s.buktiTransaksi)
-    .flatMap(bt => bt.potonganPajak.map(p => ({
-      noBukti: bt.noBukti,
-      kodeRekening: p.kodeRekening,
-      namaRekening: p.namaRekening,
-      nilai: p.nilai,
-    })));
+  // Kumpulkan semua potongan dari SEMUA sumber (SPP + SPJ Panjar Kegiatan)
+  const allBuktiPotong = [
+    ...state.spp.flatMap(s => s.buktiTransaksi.flatMap(bt => bt.potonganPajak.map(p => ({
+      noBukti: bt.noBukti, kodeRekening: p.kodeRekening, namaRekening: p.namaRekening, nilai: p.nilai,
+      sumber: `SPP ${s.jenis === 'panjar' ? 'Panjar' : s.jenis === 'definitif' ? 'Definitif' : 'Pembiayaan'} ${s.nomorSPP}`,
+    })))),
+    ...(state.spjPanjar || []).flatMap(spj => (spj.potongan || []).map(p => ({
+      noBukti: spj.nomorSPJ, kodeRekening: p.kodeRekening, namaRekening: p.namaRekening, nilai: p.nilai,
+      sumber: `SPJ Panjar ${spj.nomorSPJ}`,
+    }))),
+  ];
 
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().split("T")[0],
