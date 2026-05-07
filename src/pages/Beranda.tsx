@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import bgLandscape from "@/assets/bg-landscape.jpg";
+import bgLandscape from "@/assets/bg-sawah-sunset.jpg";
 import { saveState, loadState } from "@/data/app-state";
 import { getDemoSeedData } from "@/data/demo-seed-data";
 import { toast } from "sonner";

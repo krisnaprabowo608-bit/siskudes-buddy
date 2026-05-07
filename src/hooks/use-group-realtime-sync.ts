@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/session-manager";
 import { toast } from "sonner";
+import { loadState, mergeStates, type AppState } from "@/data/app-state";
 
 /**
  * Subscribes to realtime updates of user_sessions rows that belong to the
@@ -20,20 +21,30 @@ const LAST_LOCAL_WRITE_KEY = "siskeudes_last_local_write_at";
 
 function applyIncomingState(formData: Record<string, unknown>) {
   try {
-    const { mutasiKas, __meta, ...rest } = formData as {
-      mutasiKas?: unknown;
-      __meta?: unknown;
-    };
-    const incomingStr = JSON.stringify(rest);
-    const currentStr = localStorage.getItem("siskeudes_app_state") || "{}";
-    if (incomingStr === currentStr) return false;
+    const { mutasiKas, ...rest } = formData as { mutasiKas?: unknown };
+    const local = loadState();
+    const merged = mergeStates(local, rest as Partial<AppState>);
+    const mergedStr = JSON.stringify(merged);
+    const currentStr = JSON.stringify(local);
+    if (mergedStr === currentStr) {
+      // still sync mutasi-kas separately if it changed
+      if (mutasiKas) {
+        const cur = localStorage.getItem("siskeudes_mutasi_kas");
+        const inc = JSON.stringify(mutasiKas);
+        if (cur !== inc) {
+          localStorage.setItem("siskeudes_mutasi_kas", inc);
+          window.dispatchEvent(new CustomEvent("siskeudes:state-updated"));
+          return true;
+        }
+      }
+      return false;
+    }
 
-    localStorage.setItem("siskeudes_app_state", incomingStr);
-    localStorage.setItem("siskeudes_state", incomingStr);
+    localStorage.setItem("siskeudes_state", mergedStr);
+    localStorage.setItem("siskeudes_app_state", mergedStr);
     if (mutasiKas) {
       localStorage.setItem("siskeudes_mutasi_kas", JSON.stringify(mutasiKas));
     }
-    // Notify any mounted page to re-read local state
     window.dispatchEvent(new CustomEvent("siskeudes:state-updated"));
     return true;
   } catch {
@@ -94,29 +105,19 @@ export function useGroupRealtimeSync() {
             if (!row || row.session_id === sessionId) return;
             if (!row.form_data || typeof row.form_data !== "object") return;
 
-            // Conflict warning: someone else wrote within 2s of my last write
-            const myLast = Number(localStorage.getItem(LAST_LOCAL_WRITE_KEY) || 0);
-            if (myLast && Date.now() - myLast < 2000) {
-              toast.warning(
-                "Anggota lain juga mengubah data — versi terbaru akan disinkronkan.",
-                { duration: 2500 },
-              );
-            }
-
+            // With merge engine, concurrent writes no longer overwrite — no conflict warning needed.
             latestPayload = row.form_data as Record<string, unknown>;
 
-            // Smart debounce: collapse bursts within 200ms into one apply
-            // (fast enough so collaborators see updates near-instantly,
-            // still avoids reload-storm when many rows arrive in sequence)
+            // Tight debounce: collapse bursts within 80ms into one apply
             if (pendingApplyTimer) clearTimeout(pendingApplyTimer);
             pendingApplyTimer = setTimeout(() => {
               if (!latestPayload) return;
               const changed = applyIncomingState(latestPayload);
               latestPayload = null;
               if (changed) {
-                toast.info("Pekerjaan kelompok diperbarui", { duration: 1000 });
+                toast.info("Data kelompok diperbarui", { duration: 800 });
               }
-            }, 200);
+            }, 80);
           },
         )
         .subscribe();

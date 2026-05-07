@@ -4,7 +4,7 @@ import TopMenuBar from "./TopMenuBar";
 import ScreenShareConsent from "./ScreenShareConsent";
 import ImpersonationBanner from "./ImpersonationBanner";
 import { useGroupRealtimeSync } from "@/hooks/use-group-realtime-sync";
-import bgLandscape from "@/assets/bg-landscape.jpg";
+import bgLandscape from "@/assets/bg-sawah-sunset.jpg";
 
 export default function AppLayout() {
   useGroupRealtimeSync();

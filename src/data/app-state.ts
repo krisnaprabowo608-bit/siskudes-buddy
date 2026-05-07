@@ -1,4 +1,4 @@
-import { upsertSession } from "@/lib/session-manager";
+import { upsertSession, getSessionId } from "@/lib/session-manager";
 
 // Shared types and simple state manager using localStorage
 
@@ -72,6 +72,8 @@ export interface PenerimaanItem {
   kppn?: string;
   rincian: PenerimaanRincian[];
   isProses?: boolean;
+  /** Tunai yang sudah dipindahkan ke bank via Mutasi Kas */
+  sudahMutasi?: boolean;
 }
 
 export interface SilpaRincian {
@@ -108,7 +110,6 @@ export interface SPPRincian {
   kodeRekening: string;
   namaRekening: string;
   nilai: number;
-  /** Bridge ke baris Belanja (No. Ref) — wajib untuk SPP Panjar/Definitif baru */
   belanjaId?: string;
   noRef?: string;
   kodeKegiatan?: string;
@@ -157,6 +158,8 @@ export interface PenyetoranPajak {
   ntpn: string;
   jenis: 'tunai' | 'bank';
   rincianBuktiPotong: { noBukti: string; kodeRekening: string; namaRekening: string; nilai: number }[];
+  /** ID-ID potongan asal yang sudah di-link ke penyetoran ini (untuk cegah double setor) */
+  sumberPotonganIds?: string[];
 }
 
 export interface SaldoAwalItem {
@@ -165,6 +168,17 @@ export interface SaldoAwalItem {
   namaRekening: string;
   debet: number;
   kredit: number;
+}
+
+export interface SPJRincian {
+  id: string;
+  kodeRekening: string;
+  namaRekening: string;
+  nilai: number;
+  belanjaId?: string;
+  noRef?: string;
+  kodeKegiatan?: string;
+  namaKegiatan?: string;
 }
 
 export interface SPJPanjarItem {
@@ -177,6 +191,20 @@ export interface SPJPanjarItem {
   jumlahSPJ: number;
   sisa: number;
   keterangan: string;
+  /** Sub-data baru per revisi klien (SPJ Panjar Kegiatan) */
+  rincianSPJ?: SPJRincian[];
+  buktiKwitansi?: BuktiTransaksi[];
+  potongan?: PotonganPajak[];
+}
+
+export interface SisaPanjarItem {
+  id: string;
+  spjId: string;
+  nomorSPJ: string;
+  tanggal: string;
+  buktiNo: string;
+  nominal: number;
+  keterangan?: string;
 }
 
 export interface JurnalUmumItem {
@@ -197,7 +225,6 @@ export interface JurnalRincian {
   kredit: number;
 }
 
-// Simple localStorage-based state
 const STORAGE_KEY = 'siskeudes_state';
 
 export interface KegiatanAnggaranItem {
@@ -226,6 +253,13 @@ export interface OutputItemState {
   keterangan: string;
 }
 
+/** Versioning meta for merge-on-receive */
+export interface EntityMeta {
+  v: number;
+  t: number; // updated timestamp ms
+  by: string; // session id
+}
+
 export interface AppState {
   pendapatan: PendapatanItem[];
   belanja: BelanjaItem[];
@@ -237,8 +271,11 @@ export interface AppState {
   penyetoranPajak: PenyetoranPajak[];
   saldoAwal: SaldoAwalItem[];
   spjPanjar: SPJPanjarItem[];
+  sisaPanjar?: SisaPanjarItem[];
   jurnalUmum: JurnalUmumItem[];
   kegiatanAnggaran: KegiatanAnggaranItem[];
+  /** key: `${collection}:${id}` → version meta. Used by merge engine. */
+  __meta?: Record<string, EntityMeta>;
 }
 
 const defaultState: AppState = {
@@ -252,21 +289,112 @@ const defaultState: AppState = {
   penyetoranPajak: [],
   saldoAwal: [],
   spjPanjar: [],
+  sisaPanjar: [],
   jurnalUmum: [],
   kegiatanAnggaran: [],
+  __meta: {},
 };
+
+const COLLECTIONS = [
+  'pendapatan','belanja','pembiayaan','penerimaan','silpa','spp',
+  'pencairan','penyetoranPajak','saldoAwal','spjPanjar','sisaPanjar',
+  'jurnalUmum','kegiatanAnggaran',
+] as const;
 
 export function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...defaultState, ...JSON.parse(raw) } : defaultState;
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { ...defaultState, ...parsed, __meta: parsed.__meta || {} };
   } catch {
-    return defaultState;
+    return { ...defaultState };
   }
 }
 
-// Debounced backend push so a burst of saveState() calls (typing, multiple
-// rows added in quick succession) collapses into ONE network round-trip.
+/**
+ * Bump version metadata for entities that changed compared to previous state.
+ * Called inside saveState so every write also stamps versions.
+ */
+function bumpVersions(prev: AppState, next: AppState): AppState {
+  const me = (() => { try { return getSessionId(); } catch { return 'local'; } })();
+  const meta: Record<string, EntityMeta> = { ...(next.__meta || prev.__meta || {}) };
+  const now = Date.now();
+  for (const col of COLLECTIONS) {
+    const prevArr = (prev[col] as { id: string }[] | undefined) || [];
+    const nextArr = (next[col] as { id: string }[] | undefined) || [];
+    const prevMap = new Map(prevArr.map(x => [x.id, x]));
+    const nextMap = new Map(nextArr.map(x => [x.id, x]));
+    // Updated or new
+    for (const [id, item] of nextMap) {
+      const before = prevMap.get(id);
+      if (!before || JSON.stringify(before) !== JSON.stringify(item)) {
+        const cur = meta[`${col}:${id}`];
+        meta[`${col}:${id}`] = { v: (cur?.v || 0) + 1, t: now, by: me };
+      }
+    }
+    // Deleted: leave a tombstone so merge knows
+    for (const id of prevMap.keys()) {
+      if (!nextMap.has(id)) {
+        const cur = meta[`${col}:${id}`];
+        meta[`${col}:${id}`] = { v: (cur?.v || 0) + 1, t: now, by: me };
+        meta[`${col}:${id}__deleted`] = { v: 1, t: now, by: me };
+      }
+    }
+  }
+  return { ...next, __meta: meta };
+}
+
+/**
+ * Three-way merge of incoming remote state into local state, per-entity by id.
+ * - Higher meta.v wins; tie → newer t wins; tie → remote wins (deterministic).
+ * - Tombstones (`${col}:${id}__deleted`) remove the entity if their version >= local v.
+ * - Collections without ids (or scalars) are last-write-wins by overall meta timestamp.
+ */
+export function mergeStates(local: AppState, remote: Partial<AppState>): AppState {
+  const out: AppState = { ...local, __meta: { ...(local.__meta || {}) } };
+  const remoteMeta = remote.__meta || {};
+  const meta = out.__meta!;
+
+  const winner = (col: string, id: string) => {
+    const a = meta[`${col}:${id}`];
+    const b = remoteMeta[`${col}:${id}`];
+    if (!a) return 'remote';
+    if (!b) return 'local';
+    if (b.v > a.v) return 'remote';
+    if (b.v < a.v) return 'local';
+    if (b.t > a.t) return 'remote';
+    if (b.t < a.t) return 'local';
+    return 'remote';
+  };
+
+  for (const col of COLLECTIONS) {
+    const localArr = (local[col] as { id: string }[] | undefined) || [];
+    const remoteArr = (remote[col] as { id: string }[] | undefined) || [];
+    const map = new Map<string, { id: string }>();
+    for (const x of localArr) map.set(x.id, x);
+    for (const r of remoteArr) {
+      const w = winner(col, r.id);
+      if (w === 'remote') map.set(r.id, r);
+    }
+    // Apply tombstones
+    for (const key of Object.keys(remoteMeta)) {
+      if (!key.startsWith(`${col}:`) || !key.endsWith('__deleted')) continue;
+      const id = key.slice(col.length + 1, -('__deleted'.length));
+      const w = winner(col, id);
+      if (w === 'remote') map.delete(id);
+    }
+    // Merge meta
+    for (const [k, v] of Object.entries(remoteMeta)) {
+      if (!k.startsWith(`${col}:`)) continue;
+      const cur = meta[k];
+      if (!cur || v.v > cur.v || (v.v === cur.v && v.t > cur.t)) meta[k] = v;
+    }
+    (out as unknown as Record<string, unknown[]>)[col] = Array.from(map.values());
+  }
+  return out;
+}
+
+// Debounced backend push so a burst of saveState() calls collapses into ONE round-trip.
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingState: AppState | null = null;
 
@@ -286,25 +414,22 @@ function flushPush() {
       }
     })();
     const payload = { ...state, mutasiKas } as unknown as Record<string, unknown>;
-    // Mark our own write so realtime subscriber can detect cross-edits
     localStorage.setItem('siskeudes_last_local_write_at', String(Date.now()));
     void upsertSession({ form_data: payload });
   } catch { /* ignore */ }
 }
 
 export function saveState(state: AppState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  try { localStorage.setItem('siskeudes_app_state', JSON.stringify(state)); } catch { /* ignore */ }
+  const prev = loadState();
+  const stamped = bumpVersions(prev, state);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stamped));
+  try { localStorage.setItem('siskeudes_app_state', JSON.stringify(stamped)); } catch { /* ignore */ }
 
-  // Coalesce backend pushes (debounce 150ms — fast enough to feel "live"
-  // for collaborators, still collapses keystroke bursts into one round-trip)
-  pendingState = state;
+  pendingState = stamped;
   if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(flushPush, 150);
+  pushTimer = setTimeout(flushPush, 120);
 }
 
-// Force-flush hook for places that REALLY need the server to be in sync now
-// (e.g., before navigating away or submitting a report).
 export function flushSaveStateNow() {
   if (pushTimer) {
     clearTimeout(pushTimer);
