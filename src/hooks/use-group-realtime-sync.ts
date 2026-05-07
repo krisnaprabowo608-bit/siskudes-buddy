@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/session-manager";
 import { toast } from "sonner";
+import { loadState, mergeStates, type AppState } from "@/data/app-state";
 
 /**
  * Subscribes to realtime updates of user_sessions rows that belong to the
@@ -20,20 +21,30 @@ const LAST_LOCAL_WRITE_KEY = "siskeudes_last_local_write_at";
 
 function applyIncomingState(formData: Record<string, unknown>) {
   try {
-    const { mutasiKas, __meta, ...rest } = formData as {
-      mutasiKas?: unknown;
-      __meta?: unknown;
-    };
-    const incomingStr = JSON.stringify(rest);
-    const currentStr = localStorage.getItem("siskeudes_app_state") || "{}";
-    if (incomingStr === currentStr) return false;
+    const { mutasiKas, ...rest } = formData as { mutasiKas?: unknown };
+    const local = loadState();
+    const merged = mergeStates(local, rest as Partial<AppState>);
+    const mergedStr = JSON.stringify(merged);
+    const currentStr = JSON.stringify(local);
+    if (mergedStr === currentStr) {
+      // still sync mutasi-kas separately if it changed
+      if (mutasiKas) {
+        const cur = localStorage.getItem("siskeudes_mutasi_kas");
+        const inc = JSON.stringify(mutasiKas);
+        if (cur !== inc) {
+          localStorage.setItem("siskeudes_mutasi_kas", inc);
+          window.dispatchEvent(new CustomEvent("siskeudes:state-updated"));
+          return true;
+        }
+      }
+      return false;
+    }
 
-    localStorage.setItem("siskeudes_app_state", incomingStr);
-    localStorage.setItem("siskeudes_state", incomingStr);
+    localStorage.setItem("siskeudes_state", mergedStr);
+    localStorage.setItem("siskeudes_app_state", mergedStr);
     if (mutasiKas) {
       localStorage.setItem("siskeudes_mutasi_kas", JSON.stringify(mutasiKas));
     }
-    // Notify any mounted page to re-read local state
     window.dispatchEvent(new CustomEvent("siskeudes:state-updated"));
     return true;
   } catch {
