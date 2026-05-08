@@ -80,7 +80,7 @@ export default function PenyetoranPajak() {
       ntpn: selected.ntpn, jenis: selected.jenis,
       namaWP: "", alamatWP: "", npwp: "", ttd: "",
     });
-    setSelectedBuktiPotong(selected.rincianBuktiPotong || []);
+    setSelectedBuktiPotong((selected.rincianBuktiPotong || []).map(b => ({ ...b, sumber: (b as any).sumber || "Manual" })));
   };
 
   const handleHapus = () => {
@@ -125,6 +125,7 @@ export default function PenyetoranPajak() {
       kodeRekening: rincianForm.kodeRekening,
       namaRekening: rincianForm.namaRekening,
       nilai: rincianForm.nilai,
+      sumber: "Manual",
     }]);
     setRincianForm({ noBuktiPotong: "", kodeRekening: "", namaRekening: "", nilai: 0 });
   };
@@ -133,7 +134,7 @@ export default function PenyetoranPajak() {
   const handlePenyetoranDoubleClick = (item: PenyetoranPajakItem) => {
     setSelected(item);
     setMode("view");
-    setSelectedBuktiPotong(item.rincianBuktiPotong || []);
+    setSelectedBuktiPotong((item.rincianBuktiPotong || []).map(b => ({ ...b, sumber: (b as any).sumber || "Manual" })));
     setActiveTab("rincianBuktiPotong");
   };
 
