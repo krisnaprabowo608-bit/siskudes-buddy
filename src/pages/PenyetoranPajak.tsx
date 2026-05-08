@@ -125,6 +125,7 @@ export default function PenyetoranPajak() {
       kodeRekening: rincianForm.kodeRekening,
       namaRekening: rincianForm.namaRekening,
       nilai: rincianForm.nilai,
+      sumber: "Manual",
     }]);
     setRincianForm({ noBuktiPotong: "", kodeRekening: "", namaRekening: "", nilai: 0 });
   };
