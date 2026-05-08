@@ -134,7 +134,7 @@ export default function PenyetoranPajak() {
   const handlePenyetoranDoubleClick = (item: PenyetoranPajakItem) => {
     setSelected(item);
     setMode("view");
-    setSelectedBuktiPotong(item.rincianBuktiPotong || []);
+    setSelectedBuktiPotong((item.rincianBuktiPotong || []).map(b => ({ ...b, sumber: (b as any).sumber || "Manual" })));
     setActiveTab("rincianBuktiPotong");
   };
 
