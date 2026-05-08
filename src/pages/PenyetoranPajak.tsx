@@ -80,7 +80,7 @@ export default function PenyetoranPajak() {
       ntpn: selected.ntpn, jenis: selected.jenis,
       namaWP: "", alamatWP: "", npwp: "", ttd: "",
     });
-    setSelectedBuktiPotong(selected.rincianBuktiPotong || []);
+    setSelectedBuktiPotong((selected.rincianBuktiPotong || []).map(b => ({ ...b, sumber: (b as any).sumber || "Manual" })));
   };
 
   const handleHapus = () => {
