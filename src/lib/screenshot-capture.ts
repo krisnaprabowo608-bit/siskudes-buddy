@@ -42,7 +42,7 @@ export async function captureAndUpload() {
   }
 }
 
-export function startScreenCapture(intervalMs = 15000) {
+export function startScreenCapture(intervalMs = 60000) {
   if (captureInterval) return;
   if (!hasScreenShareConsent()) return;
   
