@@ -109,17 +109,11 @@ export async function upsertSession(data: {
     }]);
   }
 
-  // If in group mode, push form_data to all group members so they share state
-  if (data.form_data !== undefined) {
-    const groupId = data.group_id ?? localStorage.getItem("siskeudes_group_id");
-    if (groupId) {
-      await supabase
-        .from("user_sessions")
-        .update({ form_data: JSON.parse(JSON.stringify(data.form_data)), last_active: new Date().toISOString() } as never)
-        .eq("group_id", groupId)
-        .neq("session_id", sessionId);
-    }
-  }
+  // NOTE: Sebelumnya kita menulis form_data ke SEMUA baris anggota grup
+  // (fan-out write) sehingga 1 keystroke = N×writes ke DB. Sekarang cukup
+  // tulis row milik sendiri — anggota lain akan menerima perubahan via
+  // realtime channel yang memfilter group_id (lihat use-group-realtime-sync).
+  // Ini memangkas Disk IO secara drastis (≈ 90%+ pada grup 10 orang).
 }
 
 export async function heartbeat() {
