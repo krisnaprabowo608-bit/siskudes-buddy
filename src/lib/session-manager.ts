@@ -163,38 +163,10 @@ export async function getActiveSessions(minutesThreshold = 5) {
 }
 
 export async function trackFormProgress(formKey: string) {
-  const sessionId = getSessionId();
-  const groupId = localStorage.getItem("siskeudes_group_id");
-
+  // Cukup update progress di row sendiri. Anggota lain akan mendapat
+  // notifikasi via realtime (postgres_changes) tanpa perlu kita menulis
+  // ke baris mereka. Ini memangkas N+1 query/write per progress flag.
   await upsertSession({ form_progress: { [formKey]: true } });
-
-  if (groupId) {
-    const { data: members } = await supabase
-      .from("group_members")
-      .select("session_id")
-      .eq("group_id", groupId);
-
-    if (members) {
-      for (const member of members) {
-        if (member.session_id !== sessionId) {
-          const { data: memberSession } = await supabase
-            .from("user_sessions")
-            .select("form_progress")
-            .eq("session_id", member.session_id)
-            .maybeSingle();
-
-          const merged = {
-            ...(typeof memberSession?.form_progress === 'object' && memberSession?.form_progress !== null ? memberSession.form_progress : {}),
-            [formKey]: true,
-          };
-          await supabase
-            .from("user_sessions")
-            .update({ form_progress: merged as never, last_active: new Date().toISOString() })
-            .eq("session_id", member.session_id);
-        }
-      }
-    }
-  }
 }
 
 // ============ GROUP FUNCTIONS ============
