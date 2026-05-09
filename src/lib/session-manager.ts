@@ -109,17 +109,11 @@ export async function upsertSession(data: {
     }]);
   }
 
-  // If in group mode, push form_data to all group members so they share state
-  if (data.form_data !== undefined) {
-    const groupId = data.group_id ?? localStorage.getItem("siskeudes_group_id");
-    if (groupId) {
-      await supabase
-        .from("user_sessions")
-        .update({ form_data: JSON.parse(JSON.stringify(data.form_data)), last_active: new Date().toISOString() } as never)
-        .eq("group_id", groupId)
-        .neq("session_id", sessionId);
-    }
-  }
+  // NOTE: Sebelumnya kita menulis form_data ke SEMUA baris anggota grup
+  // (fan-out write) sehingga 1 keystroke = N×writes ke DB. Sekarang cukup
+  // tulis row milik sendiri — anggota lain akan menerima perubahan via
+  // realtime channel yang memfilter group_id (lihat use-group-realtime-sync).
+  // Ini memangkas Disk IO secara drastis (≈ 90%+ pada grup 10 orang).
 }
 
 export async function heartbeat() {
@@ -169,38 +163,10 @@ export async function getActiveSessions(minutesThreshold = 5) {
 }
 
 export async function trackFormProgress(formKey: string) {
-  const sessionId = getSessionId();
-  const groupId = localStorage.getItem("siskeudes_group_id");
-
+  // Cukup update progress di row sendiri. Anggota lain akan mendapat
+  // notifikasi via realtime (postgres_changes) tanpa perlu kita menulis
+  // ke baris mereka. Ini memangkas N+1 query/write per progress flag.
   await upsertSession({ form_progress: { [formKey]: true } });
-
-  if (groupId) {
-    const { data: members } = await supabase
-      .from("group_members")
-      .select("session_id")
-      .eq("group_id", groupId);
-
-    if (members) {
-      for (const member of members) {
-        if (member.session_id !== sessionId) {
-          const { data: memberSession } = await supabase
-            .from("user_sessions")
-            .select("form_progress")
-            .eq("session_id", member.session_id)
-            .maybeSingle();
-
-          const merged = {
-            ...(typeof memberSession?.form_progress === 'object' && memberSession?.form_progress !== null ? memberSession.form_progress : {}),
-            [formKey]: true,
-          };
-          await supabase
-            .from("user_sessions")
-            .update({ form_progress: merged as never, last_active: new Date().toISOString() })
-            .eq("session_id", member.session_id);
-        }
-      }
-    }
-  }
 }
 
 // ============ GROUP FUNCTIONS ============
@@ -474,20 +440,11 @@ export async function getSubmittedReports() {
  */
 export async function syncFormDataToGroup() {
   const sessionId = getSessionId();
-  const groupId = localStorage.getItem("siskeudes_group_id");
   const appState = localStorage.getItem("siskeudes_app_state");
   if (!appState) return;
   const parsedState = JSON.parse(appState);
-
+  // Cukup tulis row sendiri — anggota lain dapat update via realtime.
   await supabase.from("user_sessions").update({ form_data: parsedState as never }).eq("session_id", sessionId);
-
-  if (groupId) {
-    await supabase
-      .from("user_sessions")
-      .update({ form_data: parsedState as never })
-      .eq("group_id", groupId)
-      .neq("session_id", sessionId);
-  }
 }
 
 export async function loadGroupFormData(): Promise<Record<string, unknown> | null> {

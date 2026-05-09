@@ -427,7 +427,9 @@ export function saveState(state: AppState) {
 
   pendingState = stamped;
   if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(flushPush, 120);
+  // Debounce 800ms: burst keystroke/edit ber-collapse jadi 1 round-trip ke DB.
+  // Realtime tetap terasa instan karena listener menerima broadcast saat flush.
+  pushTimer = setTimeout(flushPush, 800);
 }
 
 export function flushSaveStateNow() {
