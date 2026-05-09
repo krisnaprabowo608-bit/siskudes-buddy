@@ -108,7 +108,7 @@ export function useGroupRealtimeSync() {
             // With merge engine, concurrent writes no longer overwrite — no conflict warning needed.
             latestPayload = row.form_data as Record<string, unknown>;
 
-            // Tight debounce: collapse bursts within 80ms into one apply
+            // Debounce 250ms: collapse burst dari beberapa anggota jadi 1 apply
             if (pendingApplyTimer) clearTimeout(pendingApplyTimer);
             pendingApplyTimer = setTimeout(() => {
               if (!latestPayload) return;
@@ -117,7 +117,7 @@ export function useGroupRealtimeSync() {
               if (changed) {
                 toast.info("Data kelompok diperbarui", { duration: 800 });
               }
-            }, 80);
+            }, 250);
           },
         )
         .subscribe();
