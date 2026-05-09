@@ -440,20 +440,11 @@ export async function getSubmittedReports() {
  */
 export async function syncFormDataToGroup() {
   const sessionId = getSessionId();
-  const groupId = localStorage.getItem("siskeudes_group_id");
   const appState = localStorage.getItem("siskeudes_app_state");
   if (!appState) return;
   const parsedState = JSON.parse(appState);
-
+  // Cukup tulis row sendiri — anggota lain dapat update via realtime.
   await supabase.from("user_sessions").update({ form_data: parsedState as never }).eq("session_id", sessionId);
-
-  if (groupId) {
-    await supabase
-      .from("user_sessions")
-      .update({ form_data: parsedState as never })
-      .eq("group_id", groupId)
-      .neq("session_id", sessionId);
-  }
 }
 
 export async function loadGroupFormData(): Promise<Record<string, unknown> | null> {
