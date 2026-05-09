@@ -120,7 +120,8 @@ export default function SiteLockGuard({ children }: { children: React.ReactNode 
   useEffect(() => {
     if ((locked || maxReached) && !bypassed) return;
     heartbeat();
-    const interval = setInterval(heartbeat, 30000);
+    // 60s heartbeat — cukup untuk presence, hemat 50% write vs 30s.
+    const interval = setInterval(heartbeat, 60000);
     return () => clearInterval(interval);
   }, [locked, maxReached, bypassed]);
 
